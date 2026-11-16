@@ -1,0 +1,15 @@
+# Ignore everything, then list what goes into the VSIX.
+**/**
+
+!package.json
+!readme.md
+!LICENSE-*
+!language-configuration.json
+!syntaxes/**
+!images/icon.png
+!images/file-icon.svg
+
+# The bundled extension (see extension/vite.config.ts) and the server binary (see `node tasks.cjs build`).
+!build/extension.cjs
+!build/xmake_analyzer
+!build/xmake_analyzer.exe

@@ -1,0 +1,20 @@
+[package]
+name                   = "xmake_syntax"
+version                = "0.0.0"
+description            = "Resilient, lossless, dialect-aware Lua parser for xmake scripts."
+authors.workspace      = true
+edition.workspace      = true
+license.workspace      = true
+rust-version.workspace = true
+
+[lib]
+doctest = false
+
+[dependencies]
+text-size.workspace = true
+
+[dev-dependencies]
+expect-test.workspace = true
+
+[lints]
+workspace = true

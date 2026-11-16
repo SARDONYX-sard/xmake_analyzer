@@ -1,0 +1,63 @@
+[workspace]
+resolver        = "3"
+members         = ["crates/*"]
+default-members = ["crates/xmake_analyzer"]
+
+[workspace.package]
+authors      = ["SARDONYX"]
+edition      = "2024"
+rust-version = "1.96"
+license      = "MIT OR Apache-2.0"
+
+[profile.dev]
+debug = 1
+
+[profile.release]
+debug = 0
+
+[profile.release-lto]
+inherits      = "release"
+lto           = true
+codegen-units = 1
+
+[workspace.dependencies]
+xmake_api     = { path = "./crates/xmake_api", version = "0.0.0" }
+xmake_fmt     = { path = "./crates/xmake_fmt", version = "0.0.0" }
+xmake_ide     = { path = "./crates/xmake_ide", version = "0.0.0" }
+xmake_lint    = { path = "./crates/xmake_lint", version = "0.0.0" }
+xmake_project = { path = "./crates/xmake_project", version = "0.0.0" }
+xmake_syntax  = { path = "./crates/xmake_syntax", version = "0.0.0" }
+xmake_types   = { path = "./crates/xmake_types", version = "0.0.0" }
+
+anyhow            = "1.0.104"
+crossbeam-channel = "0.5.17"
+expect-test       = "1.5.1"
+rustc-hash        = "2.1.1"
+serde             = { version = "1.0.228", features = ["derive"] }
+serde_json        = "1.0.154"
+text-size         = "1.1.1"
+
+[workspace.lints.rust]
+elided_lifetimes_in_paths      = "warn"
+explicit_outlives_requirements = "warn"
+unreachable_pub                = "warn"
+unsafe_op_in_unsafe_fn         = "warn"
+unused_extern_crates           = "warn"
+unused_lifetimes               = "warn"
+
+[workspace.lints.clippy]
+complexity  = { level = "warn", priority = -1 }
+correctness = { level = "deny", priority = -1 }
+perf        = { level = "deny", priority = -1 }
+style       = { level = "warn", priority = -1 }
+suspicious  = { level = "warn", priority = -1 }
+
+single_match                 = "allow"
+len_without_is_empty         = "allow"
+too_long_first_doc_paragraph = "allow"
+
+dbg_macro     = "warn"
+print_stderr  = "warn"
+print_stdout  = "warn"
+todo          = "warn"
+str_to_string = "warn"

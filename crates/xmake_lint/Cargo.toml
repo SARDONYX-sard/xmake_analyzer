@@ -1,0 +1,22 @@
+[package]
+name                   = "xmake_lint"
+version                = "0.0.0"
+description            = "Diagnostics, lints and their fixes for xmake scripts."
+authors.workspace      = true
+edition.workspace      = true
+license.workspace      = true
+rust-version.workspace = true
+
+[lib]
+doctest = false
+
+[dependencies]
+xmake_api.workspace     = true
+xmake_project.workspace = true
+xmake_syntax.workspace  = true
+xmake_types.workspace   = true
+
+rustc-hash.workspace = true
+
+[lints]
+workspace = true

@@ -1,0 +1,21 @@
+[package]
+name                   = "xmake_api"
+version                = "0.0.0"
+description            = "The xmake API database: scopes, functions, modules and accepted values."
+authors.workspace      = true
+edition.workspace      = true
+license.workspace      = true
+rust-version.workspace = true
+
+[lib]
+doctest = false
+
+[dependencies]
+xmake_syntax.workspace = true
+
+rustc-hash.workspace = true
+serde.workspace      = true
+serde_json.workspace = true
+
+[lints]
+workspace = true

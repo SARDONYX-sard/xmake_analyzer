@@ -1,0 +1,23 @@
+[package]
+name                   = "xmake_ide"
+version                = "0.0.0"
+description            = "IDE features (completion, hover, diagnostics, navigation) for xmake scripts."
+authors.workspace      = true
+edition.workspace      = true
+license.workspace      = true
+rust-version.workspace = true
+
+[lib]
+doctest = false
+
+[dependencies]
+xmake_api.workspace     = true
+xmake_lint.workspace    = true
+xmake_project.workspace = true
+xmake_syntax.workspace  = true
+xmake_types.workspace   = true
+
+rustc-hash.workspace = true
+
+[lints]
+workspace = true

@@ -1,0 +1,19 @@
+[package]
+name                   = "xmake_types"
+version                = "0.0.0"
+description            = "LuaCATS types and their inference for xmake scripts."
+authors.workspace      = true
+edition.workspace      = true
+license.workspace      = true
+rust-version.workspace = true
+
+[lib]
+doctest = false
+
+[dependencies]
+xmake_api.workspace     = true
+xmake_project.workspace = true
+xmake_syntax.workspace  = true
+
+[lints]
+workspace = true

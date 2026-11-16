@@ -1,0 +1,190 @@
+{
+  "name": "xmake-analyzer",
+  "displayName": "xmake Analyzer",
+  "description": "Language server for xmake build scripts: scope-aware completion, diagnostics, hover, go to definition, references, rename, inlay hints and formatting.",
+  "version": "0.1.0",
+  "icon": "images/icon.png",
+  "publisher": "SARDONYX",
+  "license": "MIT OR Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/SARDONYX-sard/xmake_analyzer"
+  },
+  "bugs": {
+    "url": "https://github.com/SARDONYX-sard/xmake_analyzer/issues"
+  },
+  "homepage": "https://github.com/SARDONYX-sard/xmake_analyzer#readme",
+  "type": "module",
+  "engines": {
+    "vscode": "^1.91.0"
+  },
+  "categories": [
+    "Programming Languages",
+    "Formatters"
+  ],
+  "activationEvents": [
+    "workspaceContains:**/xmake.lua"
+  ],
+  "main": "build/extension.cjs",
+  "contributes": {
+    "languages": [
+      {
+        "id": "xmake",
+        "aliases": [
+          "xmake",
+          "XMake"
+        ],
+        "filenames": [
+          "xmake.lua"
+        ],
+        "icon": {
+          "light": "./images/file-icon.svg",
+          "dark": "./images/file-icon.svg"
+        },
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "xmake",
+        "scopeName": "source.xmake",
+        "path": "./syntaxes/xmake.tmLanguage.json"
+      }
+    ],
+    "commands": [
+      {
+        "command": "xmake-analyzer.restartServer",
+        "title": "Restart Language Server",
+        "category": "xmake Analyzer",
+        "icon": "$(debug-restart)"
+      },
+      {
+        "command": "xmake-analyzer.reloadXmake",
+        "title": "Reload the API Lists of xmake",
+        "category": "xmake Analyzer"
+      }
+    ],
+    "configuration": {
+      "title": "xmake Analyzer",
+      "properties": {
+        "xmake-analyzer.server.path": {
+          "type": "string",
+          "default": "",
+          "description": "Path of the `xmake_analyzer` executable. Empty uses the bundled server.",
+          "scope": "machine-overridable"
+        },
+        "xmake-analyzer.xmakePath": {
+          "type": "string",
+          "default": "xmake",
+          "description": "The xmake executable, asked for its version, Lua runtime and API lists.",
+          "scope": "machine-overridable"
+        },
+        "xmake-analyzer.queryXmake": {
+          "type": "boolean",
+          "default": true,
+          "markdownDescription": "Read the API lists from the installed xmake (cached per xmake build). When disabled, or when xmake is not found, the lists bundled with the server are used."
+        },
+        "xmake-analyzer.luaVersion": {
+          "type": "string",
+          "default": "auto",
+          "enum": [
+            "auto",
+            "5.1",
+            "luajit",
+            "5.2",
+            "5.3",
+            "5.4",
+            "5.5"
+          ],
+          "markdownEnumDescriptions": [
+            "The runtime of the installed xmake: Lua 5.4, or LuaJIT for xmake built with it.",
+            "Lua 5.1",
+            "LuaJIT: Lua 5.1 with `goto`",
+            "Lua 5.2",
+            "Lua 5.3",
+            "Lua 5.4",
+            "Lua 5.5"
+          ],
+          "description": "The Lua version scripts are checked against: syntax of newer versions is reported."
+        },
+        "xmake-analyzer.diagnostics.enable": {
+          "type": "boolean",
+          "default": true,
+          "description": "Report syntax errors and misuses of the xmake API."
+        },
+        "xmake-analyzer.claimIncludedFiles": {
+          "type": "boolean",
+          "default": true,
+          "markdownDescription": "Keep Lua language servers away from the `.lua` files loaded by `includes()`: they are added to `files.associations` (as `xmake`) and, with the Lua extension (sumneko), to `Lua.workspace.ignoreDir`, in the settings of the workspace folder. Only the entries added by this extension are updated."
+        },
+        "xmake-analyzer.codeLens.runTask": {
+          "type": "boolean",
+          "default": true,
+          "markdownDescription": "Show `▶ Run xmake <name>` above the tasks with a `set_menu`, running them in a terminal."
+        },
+        "xmake-analyzer.format.indentScopes": {
+          "type": "boolean",
+          "default": true,
+          "markdownDescription": "Indent the contents of `target(...)`, `option(...)`, ... up to their `*_end()`, as in the xmake manual. The indentation unit comes from the editor and `.editorconfig`."
+        },
+        "xmake-analyzer.format.maxBlankLines": {
+          "type": "integer",
+          "default": 1,
+          "minimum": 0,
+          "description": "The longest run of blank lines kept by the formatter."
+        },
+        "xmake-analyzer.trace.server": {
+          "type": "string",
+          "enum": [
+            "off",
+            "messages",
+            "verbose"
+          ],
+          "default": "off",
+          "description": "Traces the communication between VS Code and the language server."
+        },
+        "xmake-analyzer.lints": {
+          "type": "object",
+          "default": {},
+          "additionalProperties": {
+            "type": "string",
+            "enum": [
+              "allow",
+              "warn",
+              "deny"
+            ]
+          },
+          "markdownDescription": "Levels of the lints by name, e.g. `{\"unused-local\": \"allow\"}`. `xmake_analyzer lint --list` lists them."
+        }
+      }
+    },
+    "configurationDefaults": {
+      "[xmake]": {
+        "editor.semanticHighlighting.enabled": true,
+        "editor.wordBasedSuggestions": "off",
+        "editor.quickSuggestions": {
+          "other": "on",
+          "comments": "off",
+          "strings": "on"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "check": "tsc -p ./extension",
+    "compile": "vite build --config extension/vite.config.ts",
+    "compile:debug": "vite build --config extension/vite.config.ts --mode development",
+    "build:server": "cargo build --release",
+    "release": "npm run compile && npm run build:server && node ./tasks.cjs build",
+    "package": "npm run build:server && node ./tasks.cjs build --vsix",
+    "debug": "npm run compile:debug && cargo build && node ./tasks.cjs build --profile debug"
+  },
+  "devDependencies": {
+    "@types/node": "^26.1.1",
+    "@types/vscode": "~1.91.0",
+    "@vscode/vsce": "^4.0.0",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.5",
+    "vscode-languageclient": "^10.1.0"
+  }
+}

@@ -1,0 +1,21 @@
+[package]
+name                   = "xmake_fmt"
+version                = "0.0.0"
+description            = "Formatter for xmake scripts, following .editorconfig."
+authors.workspace      = true
+edition.workspace      = true
+license.workspace      = true
+rust-version.workspace = true
+
+[lib]
+doctest = false
+
+[dependencies]
+xmake_api.workspace    = true
+xmake_syntax.workspace = true
+
+[dev-dependencies]
+expect-test.workspace = true
+
+[lints]
+workspace = true

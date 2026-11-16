@@ -1,0 +1,588 @@
+//! Go to definition, find references and rename.
+//!
+//! Two kinds of names are navigable: Lua names (locals, parameters, imports,
+//! file-level functions) and project names in strings (`target("app")` and
+//! `add_deps("app")`, options, rules, toolchains, required packages).
+
+use std::{
+    borrow::Cow,
+    path::{Path, PathBuf},
+};
+
+use xmake_api::{ArgValues, Scope};
+use xmake_syntax::{
+    SyntaxKind, SyntaxToken, TextRange, TextSize,
+    ast::{AstNode, CallExpr, Literal},
+};
+
+use crate::{
+    AnalyzedFile, Project, outline::content_range, resolve::resolve, xmake_project::annotations,
+    xmake_project::enclosing_call,
+};
+
+/// A location in the project.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct NavTarget<'a> {
+    pub path: Cow<'a, Path>,
+    /// The range to select, empty for a whole file.
+    pub range: TextRange,
+}
+
+/// What the cursor is on.
+enum Symbol<'a> {
+    /// A Lua name declared at `range` of the current file.
+    Lua { range: TextRange },
+    /// A project name used in a string.
+    Project { kind: ProjectName, name: Cow<'a, str> },
+    /// A global function of the project: `function name() end`.
+    Global { name: &'a str },
+}
+
+/// The kinds of project names.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum ProjectName {
+    Defined(Scope),
+    Package,
+}
+
+impl ProjectName {
+    fn of_values(values: ArgValues) -> Option<ProjectName> {
+        let kind = match values {
+            ArgValues::Targets => ProjectName::Defined(Scope::Target),
+            ArgValues::Options | ArgValues::Configs => ProjectName::Defined(Scope::Option),
+            ArgValues::Rules => ProjectName::Defined(Scope::Rule),
+            ArgValues::Toolchains => ProjectName::Defined(Scope::Toolchain),
+            ArgValues::Packages => ProjectName::Package,
+            _ => return None,
+        };
+        Some(kind)
+    }
+
+    /// The kind of names a string argument of `call` holds.
+    fn of_arg(file: &AnalyzedFile, call: CallExpr<'_>, index: usize) -> Option<ProjectName> {
+        let name = call.callee_name()?;
+        if let Some((scope, xmake_api::ScopeEdge::Begin)) = Scope::from_opener(name) {
+            return (index == 0).then_some(ProjectName::Defined(scope));
+        }
+        if name == "add_requires" {
+            return Some(ProjectName::Package);
+        }
+        ProjectName::of_values(xmake_project::call_arg_values(file, call, index)?)
+    }
+}
+
+fn token_at(file: &AnalyzedFile, offset: TextSize) -> Option<SyntaxToken<'_>> {
+    file.root().token_at_offset(offset).max_by_key(|t| {
+        matches!(t.kind(), SyntaxKind::IDENT | SyntaxKind::STRING | SyntaxKind::LONG_STRING)
+    })
+}
+
+fn symbol_at(file: &AnalyzedFile, offset: TextSize) -> Option<(Symbol<'_>, TextRange)> {
+    let token = token_at(file, offset)?;
+    match token.kind() {
+        SyntaxKind::IDENT => {
+            let parent = token.parent()?;
+            let range = match parent.kind() {
+                SyntaxKind::NAME => token.text_range(),
+                SyntaxKind::NAME_REF => match resolve(file, token) {
+                    // `t()` of `function t()`: a global, maybe used elsewhere.
+                    Some(binding) if is_function_name(file, binding.range) => {
+                        return Some((Symbol::Global { name: token.text() }, token.text_range()));
+                    }
+                    Some(binding) => binding.range,
+                    None => return global_function_at(file, token),
+                },
+                // `t` of `function t() end`
+                SyntaxKind::FUNC_NAME => {
+                    let statement = parent.parent()?;
+                    let name = xmake_types::global_function_name(statement)?;
+                    return Some((Symbol::Global { name }, token.text_range()));
+                }
+                _ => return None,
+            };
+            Some((Symbol::Lua { range }, token.text_range()))
+        }
+        // `para` of `---@param para string`: the parameter.
+        SyntaxKind::LINE_COMMENT => {
+            let annotation = annotations::Annotation::parse(token)?;
+            let (name, range, _) =
+                annotation.name_and_rest().filter(|_| annotation.tag == "param")?;
+            let name = name.trim_end_matches('?');
+            let range = TextRange::at(range.start(), TextSize::new(name.len() as u32));
+            if !range.contains_inclusive(offset) {
+                return None;
+            }
+            let statement = annotations::documented_statement(token)?;
+            let params = annotations::function_params(statement)?;
+            let param = annotations::param_names(params).find(|p| p.text() == name)?;
+            Some((Symbol::Lua { range: param.text_range() }, range))
+        }
+        SyntaxKind::STRING | SyntaxKind::LONG_STRING => {
+            let (call, index) = enclosing_call(token)?;
+            let kind = ProjectName::of_arg(file, call, index)?;
+            let value = Literal::cast(token.parent()?)?.string_value()?;
+            let name = match kind {
+                // `add_requires("zlib 1.2.x")`: the package is `zlib`.
+                ProjectName::Package => match value {
+                    Cow::Borrowed(v) => Cow::Borrowed(v.split_whitespace().next().unwrap_or(v)),
+                    Cow::Owned(v) => {
+                        Cow::Owned(v.split_whitespace().next().unwrap_or("").to_owned())
+                    }
+                },
+                ProjectName::Defined(_) => value,
+            };
+            Some((Symbol::Project { kind, name }, content_range(token)))
+        }
+        _ => None,
+    }
+}
+
+/// Whether the name declared at `range` is that of `function name() end`.
+fn is_function_name(file: &AnalyzedFile, range: TextRange) -> bool {
+    let token = file.root().token_at_offset(range.start()).right_biased();
+    token.and_then(|t| t.parent()).is_some_and(|n| n.kind() == SyntaxKind::FUNC_NAME)
+}
+
+/// `t` in `t()` when it calls the global function `t` of the file.
+fn global_function_at<'a>(
+    file: &'a AnalyzedFile,
+    token: SyntaxToken<'a>,
+) -> Option<(Symbol<'a>, TextRange)> {
+    let name = token.text();
+    let declared = file.root().descendants().any(|n| {
+        n.kind() == SyntaxKind::FUNCTION_STMT && xmake_types::global_function_name(n) == Some(name)
+    });
+    declared.then_some((Symbol::Global { name }, token.text_range()))
+}
+
+/// The declarations and uses of the global function `name` in `file`.
+fn global_uses(file: &AnalyzedFile, name: &str) -> Vec<TextRange> {
+    let idents = file
+        .root()
+        .descendant_tokens()
+        .filter(|t| t.kind() == SyntaxKind::IDENT && t.text() == name);
+    let mut out: Vec<TextRange> = idents
+        .filter(|ident| match ident.parent() {
+            // Unresolved, or resolved to the `function name()` itself.
+            Some(p) if p.kind() == SyntaxKind::NAME_REF => {
+                resolve(file, *ident).is_none_or(|b| is_function_name(file, b.range))
+            }
+            Some(p) if p.kind() == SyntaxKind::FUNC_NAME => {
+                p.parent().is_some_and(|s| xmake_types::global_function_name(s) == Some(name))
+            }
+            _ => false,
+        })
+        .map(|t| t.text_range())
+        .collect();
+    out.sort_by_key(|r| r.start());
+    out
+}
+
+/// Where the item at `offset` is defined.
+pub fn goto_definition<'a>(
+    project: &'a Project,
+    file: &'a AnalyzedFile,
+    path: &'a Path,
+    offset: TextSize,
+) -> Vec<NavTarget<'a>> {
+    let files = goto_files(project, file, path, offset);
+    if !files.is_empty() {
+        return files;
+    }
+    let Some((symbol, _)) = symbol_at(file, offset) else {
+        return Vec::new();
+    };
+    let project_scope = project.scope_of(file);
+    match symbol {
+        Symbol::Lua { range } => vec![NavTarget { path: Cow::Borrowed(path), range }],
+        Symbol::Global { name } => {
+            let mut out = Vec::new();
+            for (path, other) in project_scope.files() {
+                let declared = other.root().descendants().filter(|n| {
+                    n.kind() == SyntaxKind::FUNCTION_STMT
+                        && xmake_types::global_function_name(*n) == Some(name)
+                });
+                for function_name in declared.filter_map(|s| s.child_node(SyntaxKind::FUNC_NAME)) {
+                    let range = function_name.trimmed_range();
+                    out.push(NavTarget { path: Cow::Borrowed(path), range });
+                }
+            }
+            out
+        }
+        Symbol::Project { kind: ProjectName::Defined(scope), name } => project_scope
+            .definitions(scope)
+            .filter(|d| d.name() == name)
+            .map(|d| NavTarget { path: Cow::Borrowed(d.path), range: d.item.name_range })
+            .collect(),
+        Symbol::Project { kind: ProjectName::Package, name } => project_scope
+            .requires()
+            .filter(|r| r.text() == name)
+            .map(|r| NavTarget { path: Cow::Borrowed(r.path), range: r.item })
+            .collect(),
+    }
+}
+
+/// Path arguments lead to files: `includes("../")`, `add_files("src/*.c")`
+/// (every match), `import("a.b")` (a module next to the script).
+fn goto_files<'a>(
+    project: &Project,
+    file: &AnalyzedFile,
+    path: &Path,
+    offset: TextSize,
+) -> Vec<NavTarget<'a>> {
+    let Some(token) = token_at(file, offset).filter(|t| t.kind().is_string()) else {
+        return Vec::new();
+    };
+    let Some((call, index)) = enclosing_call(token) else {
+        return Vec::new();
+    };
+    let (Some(name), Some(value), Some(dir)) = (
+        call.callee_name(),
+        token.parent().and_then(Literal::cast).and_then(|l| l.string_value()),
+        path.parent(),
+    ) else {
+        return Vec::new();
+    };
+    let found = match name {
+        // A package of the repositories, unless the project defines it.
+        "add_requires" => {
+            let (package, _) = crate::packages::split_requirement(&value);
+            if project.scope_of(file).definitions(Scope::Package).any(|d| d.name() == package) {
+                return Vec::new();
+            }
+            project.packages.get(package).map(|e| e.path.clone()).into_iter().collect()
+        }
+        "includes" | "add_subdirs" | "add_subfiles" => crate::paths::resolve_include(dir, &value),
+        "import" if index == 0 => {
+            let relative: PathBuf = value.split('.').collect();
+            let module = dir.join(relative);
+            let candidates =
+                [module.with_extension("lua"), module.join("main.lua"), module.join("xmake.lua")];
+            candidates.into_iter().find(|c| c.is_file()).into_iter().collect()
+        }
+        _ if is_paths_api(project, name) => crate::paths::resolve_paths(dir, &value),
+        _ => return Vec::new(),
+    };
+    found
+        .into_iter()
+        .map(|p| NavTarget { path: Cow::Owned(p), range: TextRange::default() })
+        .collect()
+}
+
+/// Whether `name` takes paths: `add_files`, `add_headerfiles`, ...
+fn is_paths_api(project: &Project, name: &str) -> bool {
+    let db = &project.db;
+    db.scopes_of(name)
+        .filter_map(|s| db.scope_api(s, name))
+        .any(|a| a.kind == xmake_api::ApiKind::Paths)
+}
+
+/// Every use of the item at `offset`, the declaration included.
+pub fn references<'a>(
+    project: &'a Project,
+    file: &'a AnalyzedFile,
+    path: &'a Path,
+    offset: TextSize,
+) -> Vec<NavTarget<'a>> {
+    let Some((symbol, _)) = symbol_at(file, offset) else {
+        return Vec::new();
+    };
+    match symbol {
+        Symbol::Lua { range } => lua_references(file, range)
+            .into_iter()
+            .map(|range| NavTarget { path: Cow::Borrowed(path), range })
+            .collect(),
+        Symbol::Project { kind, name } => {
+            let mut out = Vec::new();
+            for (path, file) in project.scope_of(file).files() {
+                for range in project_name_uses(file, kind, &name) {
+                    out.push(NavTarget { path: Cow::Borrowed(path), range });
+                }
+            }
+            out
+        }
+        Symbol::Global { name } => {
+            let mut out = Vec::new();
+            for (path, file) in project.scope_of(file).files() {
+                for range in global_uses(file, name) {
+                    out.push(NavTarget { path: Cow::Borrowed(path), range });
+                }
+            }
+            out
+        }
+    }
+}
+
+/// The declaration at `declaration` and the names referring to it.
+fn lua_references(file: &AnalyzedFile, declaration: TextRange) -> Vec<TextRange> {
+    let root = file.root();
+    let name = &file.text[declaration];
+    let mut out = vec![declaration];
+    let idents =
+        root.descendant_tokens().filter(|t| t.kind() == SyntaxKind::IDENT && t.text() == name);
+    for ident in idents {
+        let is_ref = ident.parent().is_some_and(|p| p.kind() == SyntaxKind::NAME_REF);
+        if is_ref && resolve(file, ident).is_some_and(|b| b.range == declaration) {
+            out.push(ident.text_range());
+        }
+    }
+    out.extend(param_annotation(file, declaration));
+    out.sort_by_key(|r| r.start());
+    out.dedup();
+    out
+}
+
+/// `para` of `---@param para string` above the function whose parameter is
+/// declared at `declaration`.
+fn param_annotation(file: &AnalyzedFile, declaration: TextRange) -> Option<TextRange> {
+    let token = file.root().token_at_offset(declaration.start()).right_biased()?;
+    let params = token.parent()?.parent().filter(|p| p.kind() == SyntaxKind::PARAM_LIST)?;
+    let statement = annotations::statement_of_params(params)?;
+    let name = token.text();
+    annotations::above(statement).into_iter().filter(|a| a.tag == "param").find_map(|a| {
+        let (declared, range, _) = a.name_and_rest()?;
+        (declared.trim_end_matches('?') == name)
+            .then(|| TextRange::at(range.start(), TextSize::new(name.len() as u32)))
+    })
+}
+
+/// The strings of `file` naming the project item `name` of `kind`.
+fn project_name_uses(file: &AnalyzedFile, kind: ProjectName, name: &str) -> Vec<TextRange> {
+    let root = file.root();
+    let mut out = Vec::new();
+    for token in root.descendant_tokens().filter(|t| t.kind().is_string()) {
+        let Some((call, index)) = enclosing_call(token) else {
+            continue;
+        };
+        if ProjectName::of_arg(file, call, index) != Some(kind) {
+            continue;
+        }
+        let content = content_range(token);
+        let text = &file.text[content];
+        let used = match kind {
+            ProjectName::Package => text.split_whitespace().next() == Some(name),
+            ProjectName::Defined(_) => text == name || text.rsplit("::").next() == Some(name),
+        };
+        if used {
+            let len = if kind == ProjectName::Package { name.len() } else { text.len() };
+            out.push(TextRange::at(content.start(), TextSize::new(len as u32)));
+        }
+    }
+    out
+}
+
+/// The definitions of `file` (targets, options, ...) with their uses in the
+/// project, for reference counts.
+pub fn code_lenses<'a>(
+    project: &'a Project,
+    file: &'a AnalyzedFile,
+    path: &'a Path,
+) -> Vec<(TextRange, Vec<NavTarget<'a>>)> {
+    let mut out = Vec::with_capacity(file.outline.definitions.len());
+    let scope = project.scope_of(file);
+    for def in &file.outline.definitions {
+        let name = &file.text[def.name_range];
+        let mut uses = Vec::new();
+        for (other_path, other) in scope.files() {
+            for range in project_name_uses(other, ProjectName::Defined(def.scope), name) {
+                let is_itself = other_path == path && range == def.name_range;
+                if !is_itself {
+                    uses.push(NavTarget { path: Cow::Borrowed(other_path), range });
+                }
+            }
+        }
+        out.push((def.name_range, uses));
+    }
+    out
+}
+
+/// The uses of the item at `offset` in its own file, for highlighting.
+pub fn highlights(file: &AnalyzedFile, offset: TextSize) -> Vec<TextRange> {
+    match symbol_at(file, offset) {
+        Some((Symbol::Lua { range }, _)) => lua_references(file, range),
+        Some((Symbol::Project { kind, name }, _)) => project_name_uses(file, kind, &name),
+        Some((Symbol::Global { name }, _)) => global_uses(file, name),
+        None => Vec::new(),
+    }
+}
+
+/// The range a rename at `offset` would change, if renaming is possible.
+/// Imports are not renamed: their name comes from the module path.
+pub fn prepare_rename(file: &AnalyzedFile, offset: TextSize) -> Option<TextRange> {
+    let (symbol, range) = symbol_at(file, offset)?;
+    match symbol {
+        Symbol::Lua { range: declaration } => {
+            let token = token_at(file, declaration.start())?;
+            let is_import = token.kind().is_string();
+            (!is_import).then_some(range)
+        }
+        Symbol::Project { kind: ProjectName::Defined(_), .. } | Symbol::Global { .. } => {
+            Some(range)
+        }
+        Symbol::Project { kind: ProjectName::Package, .. } => None,
+    }
+}
+
+/// The edits renaming the item at `offset`: every range gets the new name.
+pub fn rename<'a>(
+    project: &'a Project,
+    file: &'a AnalyzedFile,
+    path: &'a Path,
+    offset: TextSize,
+) -> Vec<NavTarget<'a>> {
+    if prepare_rename(file, offset).is_none() {
+        return Vec::new();
+    }
+    references(project, file, path, offset)
+}
+
+#[cfg(test)]
+mod tests {
+    use std::sync::Arc;
+
+    use xmake_api::ApiDb;
+    use xmake_syntax::Dialect;
+
+    use super::*;
+
+    fn project(files: &[(&str, &str)]) -> Project {
+        let mut project = Project::new(ApiDb::builtin(), Dialect::XMAKE_DEFAULT);
+        for (path, text) in files {
+            project.set_file(PathBuf::from(path), Arc::from(*text));
+        }
+        project
+    }
+
+    fn offset_of(text: &str, needle: &str) -> TextSize {
+        TextSize::new(text.find(needle).expect("needle") as u32)
+    }
+
+    #[test]
+    fn target_across_files() {
+        let lib = "target('core')\n  set_kind('static')\n";
+        let app = "includes('lib')\ntarget('app')\n  add_deps('core')\n";
+        let p = project(&[("lib/xmake.lua", lib), ("xmake.lua", app)]);
+        let path = Path::new("xmake.lua");
+        let file = p.file(path).expect("file");
+
+        let defs = goto_definition(&p, file, path, offset_of(app, "core") + TextSize::new(1));
+        assert_eq!(defs.len(), 1);
+        assert_eq!(defs[0].path, Path::new("lib/xmake.lua"));
+        assert_eq!(&lib[defs[0].range], "core");
+
+        let mut refs: Vec<_> = references(&p, file, path, offset_of(app, "core"))
+            .into_iter()
+            .map(|t| t.path.display().to_string())
+            .collect();
+        refs.sort();
+        assert_eq!(refs, ["lib/xmake.lua", "xmake.lua"]);
+    }
+
+    #[test]
+    fn paths() {
+        let dir = std::env::temp_dir().join(format!("xmake-ide-nav-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(dir.join("app/src")).expect("dirs");
+        std::fs::write(dir.join("common.lua"), "").expect("file");
+        std::fs::write(dir.join("app/src/main.c"), "").expect("file");
+        let text = "includes('../common.lua')
+target('app')
+  add_files('src/*.c')
+";
+        let path = dir.join("app/xmake.lua");
+        let p = project(&[]);
+        let mut p = p;
+        let file = p.set_file(path.clone(), Arc::from(text));
+        let include = goto_definition(&p, &file, &path, offset_of(text, "common"));
+        assert_eq!(include.len(), 1);
+        assert_eq!(include[0].path, crate::paths::normalize(&dir.join("common.lua")));
+        let sources = goto_definition(&p, &file, &path, offset_of(text, "src/"));
+        assert_eq!(sources.len(), 1);
+        assert!(sources[0].path.ends_with("main.c"));
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn included_files_are_descriptions() {
+        let dir = std::env::temp_dir().join(format!("xmake-ide-inc-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(dir.join("app")).expect("dirs");
+        // No scope call at the top level: alone, it would be a script.
+        std::fs::write(
+            dir.join("flags.lua"),
+            "add_defines('X')
+",
+        )
+        .expect("file");
+        let mut p = project(&[]);
+        p.set_file(
+            dir.join("app/xmake.lua"),
+            Arc::from(
+                "includes('../flags.lua')
+",
+            ),
+        );
+        assert!(p.update_includes());
+        let flags = crate::paths::normalize(&dir.join("flags.lua"));
+        assert_eq!(p.file(&flags).map(|f| f.kind), Some(crate::FileKind::Description));
+        assert!(!p.update_includes(), "stable");
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn locals() {
+        let text = "local x = 1\nprint(x)\nlocal function f() return x end\n";
+        let p = project(&[("a.lua", text)]);
+        let path = Path::new("a.lua");
+        let file = p.file(path).expect("file");
+        let use_offset = offset_of(text, "x)");
+        let defs = goto_definition(&p, file, path, use_offset);
+        assert_eq!(defs[0].range, TextRange::at(TextSize::new(6), TextSize::new(1)));
+        assert_eq!(highlights(file, use_offset).len(), 3);
+        assert!(prepare_rename(file, use_offset).is_some());
+        assert_eq!(rename(&p, file, path, use_offset).len(), 3);
+    }
+}
+
+#[cfg(test)]
+mod annotation_tests {
+    use std::sync::Arc;
+
+    use xmake_api::ApiDb;
+    use xmake_syntax::Dialect;
+
+    use super::*;
+
+    const TEXT: &str = "---@param para? string\nfunction t(para)\n    return para\nend\n\nt('x')\n";
+
+    fn renamed(at: usize) -> Vec<String> {
+        let mut project = Project::new(ApiDb::builtin(), Dialect::XMAKE_DEFAULT);
+        let file = project.set_file(PathBuf::from("xmake.lua"), Arc::from(TEXT));
+        let path = Path::new("xmake.lua");
+        let offset = TextSize::new(at as u32);
+        assert!(prepare_rename(&file, offset).is_some());
+        let found = rename(&project, &file, path, offset);
+        found.iter().map(|t| format!("{}@{}", &TEXT[t.range], u32::from(t.range.start()))).collect()
+    }
+
+    #[test]
+    fn params_and_their_annotations() {
+        let from_param = renamed(TEXT.find("(para)").expect("param") + 1);
+        let from_annotation = renamed(TEXT.find("para?").expect("annotation"));
+        assert_eq!(from_param, ["para@10", "para@34", "para@51"]);
+        assert_eq!(from_annotation, from_param);
+    }
+
+    #[test]
+    fn global_functions() {
+        let from_call = renamed(TEXT.rfind("t(").expect("call"));
+        let at = TEXT.find("t(para)").expect("declaration");
+        let mut project = Project::new(ApiDb::builtin(), Dialect::XMAKE_DEFAULT);
+        let file = project.set_file(PathBuf::from("xmake.lua"), Arc::from(TEXT));
+        let token = token_at(&file, TextSize::new(at as u32)).expect("token");
+        eprintln!("DBG {:?} {:?} {:?}", token.kind(), token.text(), token.parent().map(|p| p.kind()));
+        let from_declaration = renamed(at);
+        assert_eq!(from_call, ["t@32", "t@61"]);
+        assert_eq!(from_declaration, from_call);
+    }
+}

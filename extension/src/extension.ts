@@ -1,0 +1,413 @@
+import * as fs from "node:fs";
+import * as path from "node:path";
+import * as vscode from "vscode";
+import type * as lsp from "vscode-languageclient/node";
+import {
+  LanguageClient,
+  type LanguageClientOptions,
+  NotificationType,
+  RequestType0,
+  type ServerOptions,
+} from "vscode-languageclient/node";
+
+/** Asks the server to run xmake again for its version and API lists. */
+const ReloadRequest = new RequestType0<null, void>("xmake-analyzer/reload");
+
+/** The `.lua` files loaded by `includes()` of `xmake.lua` files. */
+const IncludedFilesNotification = new NotificationType<{ uris: string[] }>(
+  "xmake-analyzer/includedFiles",
+);
+
+const SECTION = "xmake-analyzer";
+const LANGUAGE = "xmake";
+/** Where the patterns this extension wrote to the settings are remembered. */
+const CLAIMED_KEY = "claimedPatterns";
+
+let client: LanguageClient | undefined;
+let output: vscode.LogOutputChannel | undefined;
+let extensionContext: vscode.ExtensionContext | undefined;
+
+/** File system paths of the included files, compared case-insensitively on Windows. */
+let included = new Set<string>();
+
+const key = (uri: vscode.Uri): string =>
+  process.platform === "win32" ? uri.fsPath.toLowerCase() : uri.fsPath;
+
+export async function activate(
+  context: vscode.ExtensionContext,
+): Promise<void> {
+  extensionContext = context;
+  output = vscode.window.createOutputChannel("xmake Analyzer", { log: true });
+  context.subscriptions.push(
+    output,
+    vscode.commands.registerCommand(`${SECTION}.restartServer`, () =>
+      restart(context),
+    ),
+    vscode.commands.registerCommand(`${SECTION}.reloadXmake`, reloadXmake),
+    vscode.commands.registerCommand(`${SECTION}.runTask`, runTask),
+    vscode.commands.registerCommand(`${SECTION}.showReferences`, showReferences),
+    vscode.workspace.onDidChangeConfiguration((e) => {
+      if (!e.affectsConfiguration(SECTION) || !client?.isRunning()) return;
+      if (e.affectsConfiguration(`${SECTION}.server.path`)) {
+        void restart(context);
+      } else {
+        void client.sendNotification("workspace/didChangeConfiguration", {
+          settings: settings(),
+        });
+      }
+    }),
+    vscode.workspace.onDidOpenTextDocument(claimIfIncluded),
+  );
+  // The `xmake.lua` files themselves, before the server reports includes.
+  await writeClaims(previouslyIncluded());
+  await start(context);
+  void warnAboutOfficialExtension(context);
+}
+
+/** The id of the official extension of xmake. */
+const OFFICIAL_EXTENSION = "tboox.xmake-vscode";
+
+/**
+ * The official extension completes and checks `xmake.lua` too: both lists
+ * mix in the editor. Says so once, until dismissed for good.
+ */
+async function warnAboutOfficialExtension(
+  context: vscode.ExtensionContext,
+): Promise<void> {
+  const dismissed = "officialExtensionWarningDismissed";
+  if (
+    !vscode.extensions.getExtension(OFFICIAL_EXTENSION) ||
+    context.globalState.get<boolean>(dismissed)
+  ) {
+    return;
+  }
+  const show = "Show Extension";
+  const never = "Don't Show Again";
+  const choice = await vscode.window.showWarningMessage(
+    "The xmake extension (tboox.xmake-vscode) is enabled too: its completion " +
+      "mixes with that of xmake Analyzer in xmake.lua. Disable it (for this " +
+      "workspace at least) to keep only one.",
+    show,
+    never,
+  );
+  if (choice === show) {
+    await vscode.commands.executeCommand(
+      "workbench.extensions.search",
+      `@id:${OFFICIAL_EXTENSION}`,
+    );
+  } else if (choice === never) {
+    await context.globalState.update(dismissed, true);
+  }
+}
+
+export async function deactivate(): Promise<void> {
+  await client?.stop();
+  client = undefined;
+}
+
+/** The server settings, sent as `initializationOptions` and on change. */
+function settings(): unknown {
+  const config = vscode.workspace.getConfiguration(SECTION);
+  return {
+    xmakePath: config.get<string>("xmakePath"),
+    queryXmake: config.get<boolean>("queryXmake"),
+    luaVersion: config.get<string>("luaVersion"),
+    diagnostics: { enable: config.get<boolean>("diagnostics.enable") },
+    format: {
+      indentScopes: config.get<boolean>("format.indentScopes"),
+      maxBlankLines: config.get<number>("format.maxBlankLines"),
+    },
+    // This extension provides `xmake-analyzer.runTask`.
+    // This extension provides `xmake-analyzer.runTask` and `xmake-analyzer.showReferences`.
+    codeLens: { runTask: config.get<boolean>("codeLens.runTask"), references: true },
+    lints: config.get<Record<string, string>>("lints"),
+  };
+}
+
+/** The configured server, else the one bundled next to the extension. */
+function serverPath(context: vscode.ExtensionContext): string {
+  const configured = vscode.workspace
+    .getConfiguration(SECTION)
+    .get<string>("server.path")
+    ?.trim();
+  if (configured) return configured;
+  const exe =
+    process.platform === "win32" ? "xmake_analyzer.exe" : "xmake_analyzer";
+  return path.join(context.extensionPath, "build", exe);
+}
+
+async function start(context: vscode.ExtensionContext): Promise<void> {
+  const command = serverPath(context);
+  if (!fs.existsSync(command)) {
+    void vscode.window.showErrorMessage(
+      `xmake language server not found: ${command}. Build it with \`cargo build --release\` or set \`${SECTION}.server.path\`.`,
+    );
+    return;
+  }
+  const serverOptions: ServerOptions = {
+    run: { command },
+    debug: { command, options: { env: { ...process.env, RUST_LOG: "debug" } } },
+  };
+  const clientOptions: LanguageClientOptions = {
+    // `xmake.lua` and the files it includes, once given the `xmake` language.
+    documentSelector: [{ scheme: "file", language: LANGUAGE }],
+    initializationOptions: settings(),
+    outputChannel: output,
+  };
+  client = new LanguageClient(
+    SECTION,
+    "xmake Analyzer",
+    serverOptions,
+    clientOptions,
+  );
+  client.onNotification(
+    IncludedFilesNotification,
+    ({ uris }) => void onIncludedFiles(uris),
+  );
+  try {
+    await client.start();
+  } catch (error) {
+    output?.error(
+      `Failed to start the xmake language server: ${String(error)}`,
+    );
+    void vscode.window.showErrorMessage(
+      "Failed to start the xmake language server. See the output for details.",
+    );
+  }
+}
+
+async function restart(context: vscode.ExtensionContext): Promise<void> {
+  await client?.stop();
+  client = undefined;
+  await start(context);
+}
+
+async function reloadXmake(): Promise<void> {
+  if (!client?.isRunning()) {
+    void vscode.window.showErrorMessage(
+      "The xmake language server is not running.",
+    );
+    return;
+  }
+  await client.sendRequest(ReloadRequest);
+  void vscode.window.setStatusBarMessage("xmake API lists reloaded", 3000);
+}
+
+// === Included files ===
+
+/**
+ * The included files are description files: give them the `xmake` language
+ * and keep Lua language servers away, which would report the xmake functions
+ * as undefined globals.
+ */
+async function onIncludedFiles(uris: string[]): Promise<void> {
+  const files = uris.map((uri) => vscode.Uri.parse(uri));
+  included = new Set(files.map(key));
+  vscode.workspace.textDocuments.forEach(claimIfIncluded);
+  await writeClaims(files);
+}
+
+/** An open document: switch its language now. */
+function claimIfIncluded(document: vscode.TextDocument): void {
+  if (
+    document.languageId === "lua" &&
+    document.uri.scheme === "file" &&
+    included.has(key(document.uri))
+  ) {
+    void vscode.languages.setTextDocumentLanguage(document, LANGUAGE);
+  }
+}
+
+/** What this extension wrote to the settings of a workspace folder. */
+interface Claims {
+  /** Keys of `files.associations`. */
+  associations: string[];
+  /** Patterns of `Lua.workspace.ignoreDir`. */
+  ignored: string[];
+}
+
+/**
+ * Writes, per workspace folder:
+ * - the included files to `files.associations` (`xmake` language), so that
+ *   they open as xmake directly;
+ * - every `xmake.lua` and the included files to `Lua.workspace.ignoreDir` of
+ *   the Lua extension (sumneko). It treats every `*.lua` file as Lua,
+ *   whatever `files.associations` says, and diagnoses the whole workspace,
+ *   open files or not: ignoring them is the only way to silence it.
+ *
+ * Only the entries this extension wrote before are replaced: the user's own
+ * stay.
+ */
+async function writeClaims(files: vscode.Uri[]): Promise<void> {
+  const state = extensionContext?.workspaceState;
+  if (
+    !state ||
+    !vscode.workspace
+      .getConfiguration(SECTION)
+      .get<boolean>("claimIncludedFiles")
+  )
+    return;
+  const sumneko = vscode.extensions.getExtension("sumneko.lua") !== undefined;
+  for (const folder of vscode.workspace.workspaceFolders ?? []) {
+    const hasProject =
+      (
+        await vscode.workspace.findFiles(
+          new vscode.RelativePattern(folder, "**/xmake.lua"),
+          null,
+          1,
+        )
+      ).length > 0;
+    const relative = files
+      .map((file) => path.relative(folder.uri.fsPath, file.fsPath))
+      .filter((rel) => rel && !rel.startsWith("..") && !path.isAbsolute(rel))
+      .map((rel) => rel.split(path.sep).join("/"))
+      .sort();
+    const wanted: Claims = {
+      associations: relative.map((rel) => `**/${rel}`),
+      // gitignore syntax: `xmake.lua` matches in every directory.
+      ignored:
+        sumneko && hasProject
+          ? ["xmake.lua", ...relative.map((rel) => `/${rel}`)]
+          : [],
+    };
+    const stateKey = `${CLAIMED_KEY}:${folder.uri.toString()}`;
+    const previous = storedClaims(state, stateKey);
+    if (JSON.stringify(previous) === JSON.stringify(wanted)) continue;
+
+    try {
+      await updateAssociations(
+        folder,
+        previous.associations,
+        wanted.associations,
+      );
+      if (sumneko) {
+        await updateLuaIgnore(folder, previous.ignored, wanted.ignored);
+      }
+      await state.update(stateKey, wanted);
+      output?.info(
+        `${folder.name}: ${relative.length} included files claimed, ${wanted.ignored.length} patterns ignored by the Lua extension`,
+      );
+    } catch (error) {
+      output?.warn(
+        `could not update the settings of ${folder.name}: ${String(error)}`,
+      );
+    }
+  }
+}
+
+/** The claims of a folder; version 0.1 stored the relative paths only. */
+function storedClaims(state: vscode.Memento, stateKey: string): Claims {
+  const stored = state.get<Claims | string[]>(stateKey);
+  if (Array.isArray(stored)) {
+    return {
+      associations: stored.map((rel) => `**/${rel}`),
+      ignored: stored.map((rel) => `/${rel}`),
+    };
+  }
+  return stored ?? { associations: [], ignored: [] };
+}
+
+/** The included files claimed in an earlier session, until the server tells. */
+function previouslyIncluded(): vscode.Uri[] {
+  const state = extensionContext?.workspaceState;
+  if (!state) return [];
+  return (vscode.workspace.workspaceFolders ?? []).flatMap((folder) =>
+    storedClaims(
+      state,
+      `${CLAIMED_KEY}:${folder.uri.toString()}`,
+    ).associations.map((pattern) =>
+      vscode.Uri.joinPath(folder.uri, pattern.replace(/^\*\*\//, "")),
+    ),
+  );
+}
+
+async function updateAssociations(
+  folder: vscode.WorkspaceFolder,
+  previous: string[],
+  wanted: string[],
+) {
+  const config = vscode.workspace.getConfiguration("files", folder.uri);
+  const current = {
+    ...(config.inspect<Record<string, string>>("associations")
+      ?.workspaceFolderValue ?? {}),
+  };
+  for (const pattern of previous) {
+    if (current[pattern] === LANGUAGE) delete current[pattern];
+  }
+  for (const pattern of wanted) current[pattern] = LANGUAGE;
+  const value = Object.keys(current).length > 0 ? current : undefined;
+  await config.update(
+    "associations",
+    value,
+    vscode.ConfigurationTarget.WorkspaceFolder,
+  );
+}
+
+async function updateLuaIgnore(
+  folder: vscode.WorkspaceFolder,
+  previous: string[],
+  wanted: string[],
+) {
+  const config = vscode.workspace.getConfiguration("Lua", folder.uri);
+  const ours = new Set(previous);
+  const current = (
+    config.inspect<string[]>("workspace.ignoreDir")?.workspaceFolderValue ?? []
+  ).filter((pattern) => !ours.has(pattern));
+  const value = [
+    ...current,
+    ...wanted.filter((pattern) => !current.includes(pattern)),
+  ];
+  await config.update(
+    "workspace.ignoreDir",
+    value.length > 0 ? value : undefined,
+    vscode.ConfigurationTarget.WorkspaceFolder,
+  );
+}
+
+// === Tasks ===
+
+/**
+ * `xmake-analyzer.runTask`, from the code lens of a `task(...)` with a
+ * `set_menu`: runs `xmake <name>` in a terminal, in the project directory.
+ */
+function runTask(name: string, fileUri: string): void {
+  const file = vscode.Uri.parse(fileUri);
+  const folder = vscode.workspace.getWorkspaceFolder(file);
+  // The workspace folder when it holds the root xmake.lua, else the folder of the file.
+  const projectDir =
+    folder && fs.existsSync(path.join(folder.uri.fsPath, "xmake.lua"))
+      ? folder.uri.fsPath
+      : path.dirname(file.fsPath);
+  const xmake =
+    vscode.workspace
+      .getConfiguration(SECTION)
+      .get<string>("xmakePath")
+      ?.trim() || "xmake";
+  const quote = (arg: string) => (/\s/.test(arg) ? `"${arg}"` : arg);
+  const terminal = vscode.window.createTerminal({
+    name: `xmake ${name}`,
+    cwd: projectDir,
+  });
+  terminal.show();
+  terminal.sendText(`${quote(xmake)} ${quote(name)}`);
+}
+
+// === References ===
+
+/**
+ * `xmake-analyzer.showReferences`, from the `N references` code lenses. The
+ * server sends protocol values; `editor.action.showReferences` takes editor
+ * ones.
+ */
+async function showReferences(uri: string, position: lsp.Position, locations: lsp.Location[]): Promise<void> {
+  if (!client) {
+    return;
+  }
+  const c = client.protocol2CodeConverter;
+  await vscode.commands.executeCommand(
+    "editor.action.showReferences",
+    c.asUri(uri),
+    c.asPosition(position),
+    locations.map((l) => c.asLocation(l)),
+  );
+}

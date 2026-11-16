@@ -1,0 +1,29 @@
+[package]
+name                   = "xmake_analyzer"
+version                = "0.1.0"
+description            = "Language server for xmake build scripts."
+authors.workspace      = true
+edition.workspace      = true
+license.workspace      = true
+rust-version.workspace = true
+
+[[bin]]
+name = "xmake_analyzer"
+path = "src/main.rs"
+
+[dependencies]
+xmake_fmt.workspace = true
+xmake_ide.workspace = true
+
+anyhow.workspace            = true
+crossbeam-channel.workspace = true
+env_logger                  = { version = "0.11.11", default-features = false, features = ["auto-color", "humantime"] }
+log                         = "0.4.29"
+lsp-server                  = "0.10.0"
+lsp-types                   = "0.97.0"
+rustc-hash.workspace        = true
+serde.workspace             = true
+serde_json.workspace        = true
+
+[lints]
+workspace = true
