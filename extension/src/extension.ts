@@ -57,9 +57,23 @@ export async function activate(
       }
     }),
     vscode.workspace.onDidOpenTextDocument(claimIfIncluded),
+    // Settings edited or reverted outside: claim the files again.
+    vscode.workspace.onDidChangeConfiguration((e) => {
+      if (
+        e.affectsConfiguration("files.associations") ||
+        e.affectsConfiguration("Lua.workspace.ignoreDir")
+      ) {
+        void writeClaims(previouslyIncluded());
+      }
+    }),
   );
-  // The `xmake.lua` files themselves, before the server reports includes.
-  await writeClaims(previouslyIncluded());
+  // The included files known last time, before the server reports them:
+  // documents restored or opened early (the `git:` side of a diff too)
+  // switch language at once.
+  const known = previouslyIncluded();
+  included = new Set(known.map(key));
+  vscode.workspace.textDocuments.forEach(claimIfIncluded);
+  await writeClaims(known);
   await start(context);
   void warnAboutOfficialExtension(context);
 }
@@ -209,11 +223,12 @@ async function onIncludedFiles(uris: string[]): Promise<void> {
 
 /** An open document: switch its language now. */
 function claimIfIncluded(document: vscode.TextDocument): void {
-  if (
-    document.languageId === "lua" &&
-    document.uri.scheme === "file" &&
-    included.has(key(document.uri))
-  ) {
+  // Any scheme: the `git:` side of a diff is the same file at another
+  // revision, and `Lua.workspace.ignoreDir` only hides the files on disk.
+  const isXmake =
+    included.has(key(document.uri)) ||
+    path.basename(document.uri.path) === "xmake.lua";
+  if (document.languageId === "lua" && isXmake) {
     void vscode.languages.setTextDocumentLanguage(document, LANGUAGE);
   }
 }
@@ -272,7 +287,10 @@ async function writeClaims(files: vscode.Uri[]): Promise<void> {
     };
     const stateKey = `${CLAIMED_KEY}:${folder.uri.toString()}`;
     const previous = storedClaims(state, stateKey);
-    if (JSON.stringify(previous) === JSON.stringify(wanted)) continue;
+    // The settings may have been reverted since (`git checkout`, by hand):
+    // what they hold counts, not what was written last time.
+    const unchanged = JSON.stringify(previous) === JSON.stringify(wanted);
+    if (unchanged && claimsPresent(folder, wanted, sumneko)) continue;
 
     try {
       await updateAssociations(
@@ -293,6 +311,27 @@ async function writeClaims(files: vscode.Uri[]): Promise<void> {
       );
     }
   }
+}
+
+/** Whether the settings of `folder` hold every one of `claims`. */
+function claimsPresent(
+  folder: vscode.WorkspaceFolder,
+  claims: Claims,
+  sumneko: boolean,
+): boolean {
+  const associations =
+    vscode.workspace
+      .getConfiguration("files", folder.uri)
+      .inspect<Record<string, string>>("associations")?.workspaceFolderValue ??
+    {};
+  const ignored =
+    vscode.workspace
+      .getConfiguration("Lua", folder.uri)
+      .inspect<string[]>("workspace.ignoreDir")?.workspaceFolderValue ?? [];
+  return (
+    claims.associations.every((p) => associations[p] === LANGUAGE) &&
+    (!sumneko || claims.ignored.every((p) => ignored.includes(p)))
+  );
 }
 
 /** The claims of a folder; version 0.1 stored the relative paths only. */
