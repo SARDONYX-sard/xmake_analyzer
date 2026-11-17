@@ -166,6 +166,18 @@ to the Lua language server.
 Tasks with a `set_menu` get a `▶ Run xmake <name>` code lens, running them in a
 terminal.
 
+`compile_commands.json`, for C/C++ language servers (clangd, ...), is written by
+`xmake project -k compile_commands` when an `xmake.lua` or a file it includes is
+saved, in the project directory (the highest directory with an `xmake.lua`):
+
+| Setting                                    | Default    | Meaning                                                  |
+| ------------------------------------------ | ---------- | -------------------------------------------------------- |
+| `xmake-analyzer.compileCommands.auto`      | `onSave`   | `off`: only with the command                             |
+| `xmake-analyzer.compileCommands.directory` | `.vscode`  | where it goes, relative to the project; `${workspaceFolder}` |
+| `xmake-analyzer.compileCommands.lsp`       | `clangd`   | `--lsp` of `xmake project`: `clangd`, `cpptools`, `ccls`  |
+
+The command `xmake Analyzer: Generate compile_commands.json` runs it on demand.
+
 The official xmake extension (`tboox.xmake-vscode`) completes `xmake.lua` too, and
 its items mix with these: when it is enabled, a warning offers to show it, to
 disable it for the workspace.

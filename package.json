@@ -62,6 +62,11 @@
         "command": "xmake-analyzer.reloadXmake",
         "title": "Reload the API Lists of xmake",
         "category": "xmake Analyzer"
+      },
+      {
+        "command": "xmake-analyzer.generateCompileCommands",
+        "title": "Generate compile_commands.json",
+        "category": "xmake Analyzer"
       }
     ],
     "configuration": {
@@ -78,6 +83,36 @@
           "default": "xmake",
           "description": "The xmake executable, asked for its version, Lua runtime and API lists.",
           "scope": "machine-overridable"
+        },
+        "xmake-analyzer.compileCommands.auto": {
+          "type": "string",
+          "default": "onSave",
+          "enum": [
+            "onSave",
+            "off"
+          ],
+          "enumDescriptions": [
+            "Generate compile_commands.json when an xmake.lua or a file it includes is saved.",
+            "Only with the command `Generate compile_commands.json`."
+          ],
+          "markdownDescription": "When to run `xmake project -k compile_commands`, for C/C++ language servers (clangd, ...)."
+        },
+        "xmake-analyzer.compileCommands.directory": {
+          "type": "string",
+          "default": ".vscode",
+          "markdownDescription": "Where `compile_commands.json` goes, relative to the project directory (the highest directory with an `xmake.lua`). `${workspaceFolder}` is replaced; `.` is the project directory itself.",
+          "scope": "resource"
+        },
+        "xmake-analyzer.compileCommands.lsp": {
+          "type": "string",
+          "default": "clangd",
+          "enum": [
+            "clangd",
+            "cpptools",
+            "ccls",
+            ""
+          ],
+          "markdownDescription": "The language server the commands are made for (`--lsp` of `xmake project`); empty for none."
         },
         "xmake-analyzer.queryXmake": {
           "type": "boolean",

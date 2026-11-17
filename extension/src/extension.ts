@@ -10,6 +10,8 @@ import {
   type ServerOptions,
 } from "vscode-languageclient/node";
 
+import { registerCompileCommands } from "./compileCommands";
+
 /** Asks the server to run xmake again for its version and API lists. */
 const ReloadRequest = new RequestType0<null, void>("xmake-analyzer/reload");
 
@@ -74,6 +76,7 @@ export async function activate(
   included = new Set(known.map(key));
   vscode.workspace.textDocuments.forEach(claimIfIncluded);
   await writeClaims(known);
+  registerCompileCommands(context, output);
   await start(context);
   void warnAboutOfficialExtension(context);
 }
