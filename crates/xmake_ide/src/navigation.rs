@@ -576,12 +576,7 @@ mod annotation_tests {
     #[test]
     fn global_functions() {
         let from_call = renamed(TEXT.rfind("t(").expect("call"));
-        let at = TEXT.find("t(para)").expect("declaration");
-        let mut project = Project::new(ApiDb::builtin(), Dialect::XMAKE_DEFAULT);
-        let file = project.set_file(PathBuf::from("xmake.lua"), Arc::from(TEXT));
-        let token = token_at(&file, TextSize::new(at as u32)).expect("token");
-        eprintln!("DBG {:?} {:?} {:?}", token.kind(), token.text(), token.parent().map(|p| p.kind()));
-        let from_declaration = renamed(at);
+        let from_declaration = renamed(TEXT.find("t(para)").expect("declaration"));
         assert_eq!(from_call, ["t@32", "t@61"]);
         assert_eq!(from_declaration, from_call);
     }
