@@ -1,0 +1,6 @@
+# LF everywhere, whatever the platform and the editor.
+* text=auto eol=lf
+
+*.png binary
+*.vsix binary
+*.exe binary
