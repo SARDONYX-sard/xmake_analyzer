@@ -272,6 +272,10 @@ pub(crate) struct StringFiles {
     pub package: bool,
     /// A glob: `src/*.c`.
     pub glob: bool,
+    /// `import("core.base.json")` and others not of the project: xmake has
+    /// them, not the disk.
+    pub module: bool,
+    /// The files, or the directory a path names (`add_includedirs("inc")`).
     pub files: Vec<PathBuf>,
 }
 
@@ -304,12 +308,26 @@ pub(crate) fn string_files(
             (false, crate::paths::resolve_include(dir, &value))
         }
         "import" if index == 0 => {
-            (false, crate::modules::module_path(dir, &value).into_iter().collect())
+            let found: Vec<PathBuf> =
+                crate::modules::module_path(dir, &value).into_iter().collect();
+            if found.is_empty() {
+                // `lib.detect.find_program`: a module of xmake.
+                return Some(StringFiles { package: false, glob, module: true, files: found });
+            }
+            (false, found)
         }
         _ if is_paths_api(project, name) => (false, crate::paths::resolve_paths(dir, &value)),
         _ => return None,
     };
-    Some(StringFiles { package, glob, files })
+    // `add_includedirs("inc")`, `includes("sub")` without its xmake.lua: the
+    // directory.
+    let files = if files.is_empty() && !glob && !package {
+        let path = crate::paths::normalize(&dir.join(value.split('|').next().unwrap_or("").trim()));
+        if path.is_dir() { vec![path] } else { files }
+    } else {
+        files
+    };
+    Some(StringFiles { package, glob, module: false, files })
 }
 
 /// The strings naming one file (`includes("sub")`, `import("utils")`,
@@ -328,7 +346,8 @@ pub fn document_links(
         .filter_map(|token| {
             let found = string_files(project, file, dir, token, false)?;
             let [target] = <[PathBuf; 1]>::try_from(found.files).ok()?;
-            Some((content_range(token), target))
+            // A directory opens nothing in an editor.
+            target.is_file().then(|| (content_range(token), target))
         })
         .collect()
 }
@@ -577,6 +596,8 @@ mod tests {
         let text = "includes('../common.lua')
 target('app')
   add_files('src/*.c')
+  add_includedirs('src')
+  on_load(function (t) import('lib.detect.find_program') end)
 ";
         let path = dir.join("app/xmake.lua");
         let p = project(&[]);
@@ -598,6 +619,14 @@ target('app')
         assert!(hover.contains("main.c](file:///"), "{hover}");
         let hover = crate::hover(&p, &file, offset_of(text, "common")).expect("hover").markdown;
         assert!(hover.starts_with('`') && hover.contains("common.lua"), "{hover}");
+        // A directory: its path, no link.
+        let hover = crate::hover(&p, &file, offset_of(text, "src')")).expect("hover").markdown;
+        assert!(hover.contains("src"), "{hover}");
+        assert!(!hover.contains("Not found"), "{hover}");
+        assert!(document_links(&p, &file, &path).iter().all(|(r, _)| &text[*r] != "src"));
+        // A module of xmake: not a missing file.
+        let hover = crate::hover(&p, &file, offset_of(text, "lib.detect")).map(|h| h.markdown);
+        assert!(hover.as_ref().is_none_or(|h| !h.contains("Not found")), "{hover:?}");
         let _ = std::fs::remove_dir_all(&dir);
     }
 

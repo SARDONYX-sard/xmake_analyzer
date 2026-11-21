@@ -86,7 +86,7 @@ const MAX_LISTED_FILES: usize = 20;
 fn path_hover(project: &Project, file: &AnalyzedFile, token: SyntaxToken<'_>) -> Option<String> {
     let dir = crate::modules::path_of(project, file)?.parent()?;
     let found = crate::navigation::string_files(project, file, dir, token, true)?;
-    if found.package {
+    if found.package || found.module {
         return None;
     }
     let mut out = String::new();
