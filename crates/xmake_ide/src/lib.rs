@@ -9,6 +9,7 @@
 //! The layers below are re-exported: the project ([`xmake_project`]), the
 //! types ([`xmake_types`]) and the diagnostics ([`xmake_lint`]).
 
+mod assists;
 mod completion;
 mod hover;
 mod inlay;
@@ -37,6 +38,7 @@ pub use xmake_project::{
 pub use xmake_types::{self, Type, type_of};
 
 pub use crate::{
+    assists::{Assist, assists},
     completion::{CompletionItem, CompletionKind, completions},
     hover::{Hover, hover},
     inlay::{InlayHint, InlayKind, inlay_hints},

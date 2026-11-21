@@ -121,7 +121,10 @@ fn capabilities() -> ServerCapabilities {
         ),
         code_action_provider: Some(lsp_types::CodeActionProviderCapability::Options(
             lsp_types::CodeActionOptions {
-                code_action_kinds: Some(vec![lsp_types::CodeActionKind::QUICKFIX]),
+                code_action_kinds: Some(vec![
+                    lsp_types::CodeActionKind::QUICKFIX,
+                    lsp_types::CodeActionKind::REFACTOR_REWRITE,
+                ]),
                 ..Default::default()
             },
         )),

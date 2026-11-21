@@ -419,7 +419,8 @@ pub(crate) fn semantic_tokens_range(
     }))
 }
 
-/// Quick fixes of the diagnostics in the requested range.
+/// Quick fixes of the diagnostics in the requested range, and the
+/// refactorings at its start.
 pub(crate) fn code_actions(
     server: &Server,
     params: lsp_types::CodeActionParams,
@@ -450,6 +451,28 @@ pub(crate) fn code_actions(
                 edit: Some(WorkspaceEdit { changes: Some(changes), ..Default::default() }),
                 // The first fix of a diagnostic is its best one.
                 is_preferred: Some(i == 0 && !found.fixes.is_empty()),
+                ..Default::default()
+            }));
+        }
+    }
+    // Refactorings at the cursor, unless only quick fixes are asked for.
+    let kind = lsp_types::CodeActionKind::REFACTOR_REWRITE;
+    let wanted = params
+        .context
+        .only
+        .as_ref()
+        .is_none_or(|only| only.iter().any(|k| kind.as_str().starts_with(k.as_str())));
+    if wanted {
+        for assist in xmake_ide::assists(file, range.start()) {
+            let edit =
+                TextEdit { range: conv::range(file, assist.range), new_text: assist.replacement };
+            #[allow(clippy::disallowed_types)]
+            let changes =
+                std::collections::HashMap::from([(params.text_document.uri.clone(), vec![edit])]);
+            actions.push(lsp_types::CodeActionOrCommand::CodeAction(lsp_types::CodeAction {
+                title: assist.title,
+                kind: Some(kind.clone()),
+                edit: Some(WorkspaceEdit { changes: Some(changes), ..Default::default() }),
                 ..Default::default()
             }));
         }

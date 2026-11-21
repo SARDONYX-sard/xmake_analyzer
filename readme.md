@@ -16,6 +16,7 @@ runs.
 | Completion  | the APIs of the current scope · `target:` methods in callbacks · `os.`, imported modules · values in strings (see below) · LuaCATS annotations (`---@param`, types) |
 | Diagnostics | syntax · Lua version · API not available in this scope · unknown API, value, method, module function, target · `*_end()` |
 | Quick fixes | typos (`set_knd` → `set_kind`), add `add_requires`/`import`, remove unused requires, `add_subdirs` → `includes`, allow a lint |
+| Refactorings | `target("app")` ... `target_end()` ⇄ `target("app", function () ... end)`, for every scope (option, rule, package, ...) |
 | Hover       | rustdoc-like pages: signature, summary, `# Examples`, `# Notes`, link to the manual (`crates/xmake_api/docs/`)        |
 | Navigation  | hover · definition · declaration · references · highlights · rename (locals, targets, options, rules, toolchains)             |
 | Paths       | go to the files of `includes("../")`, `add_files("src/**.c\|main.c")`, `import("modules.x")`                                  |
