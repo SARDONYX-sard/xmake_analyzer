@@ -13,6 +13,7 @@ mod assists;
 mod completion;
 mod hover;
 mod inlay;
+mod modules;
 mod navigation;
 #[cfg(test)]
 mod package_tests;

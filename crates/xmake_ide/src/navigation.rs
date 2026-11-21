@@ -189,6 +189,10 @@ pub fn goto_definition<'a>(
     if !files.is_empty() {
         return files;
     }
+    // `utils.greet` of `import("utils")`: the function in `utils.lua`.
+    if let Some(target) = module_member_at(project, file, offset) {
+        return vec![target];
+    }
     let Some((symbol, _)) = symbol_at(file, offset) else {
         return Vec::new();
     };
@@ -244,6 +248,24 @@ fn goto_files<'a>(
         .collect()
 }
 
+/// `greet` in `utils.greet` with `utils` a module of the project.
+fn module_member_at<'a>(
+    project: &Project,
+    file: &AnalyzedFile,
+    offset: TextSize,
+) -> Option<NavTarget<'a>> {
+    let token = token_at(file, offset).filter(|t| t.kind() == SyntaxKind::IDENT)?;
+    let field = xmake_syntax::ast::FieldExpr::cast(token.parent()?)?;
+    if field.field()? != token {
+        return None;
+    }
+    let module = xmake_types::type_of(project, file, field.base()?).module()?;
+    let local = crate::modules::local_module(project, file, module)?;
+    let functions = crate::modules::exported_functions(&local.file);
+    let (_, _, range) = functions.into_iter().find(|(_, name, _)| *name == token.text())?;
+    Some(NavTarget { path: Cow::Owned(local.path.clone()), range })
+}
+
 /// The files a string argument names.
 pub(crate) struct StringFiles {
     /// The package of `add_requires`, not a path.
@@ -282,11 +304,7 @@ pub(crate) fn string_files(
             (false, crate::paths::resolve_include(dir, &value))
         }
         "import" if index == 0 => {
-            let relative: PathBuf = value.split('.').collect();
-            let module = dir.join(relative);
-            let candidates =
-                [module.with_extension("lua"), module.join("main.lua"), module.join("xmake.lua")];
-            (false, candidates.into_iter().find(|c| c.is_file()).into_iter().collect())
+            (false, crate::modules::module_path(dir, &value).into_iter().collect())
         }
         _ if is_paths_api(project, name) => (false, crate::paths::resolve_paths(dir, &value)),
         _ => return None,
@@ -555,6 +573,51 @@ target('app')
         assert!(hover.contains("main.c](file:///"), "{hover}");
         let hover = crate::hover(&p, &file, offset_of(text, "common")).expect("hover").markdown;
         assert!(hover.contains("common.lua](file:///"), "{hover}");
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn local_modules() {
+        let dir = std::env::temp_dir().join(format!("xmake-ide-mod-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).expect("dir");
+        std::fs::write(
+            dir.join("utils.lua"),
+            "--- Says hello.
+---@param name string
+function greet(name) end
+function _private() end
+",
+        )
+        .expect("file");
+        let text = "target('a')
+  on_load(function (t)
+    import('utils')
+    utils.greet('x')
+    utils.
+  end)
+";
+        let path = dir.join("xmake.lua");
+        let mut p = project(&[]);
+        let file = p.set_file(path.clone(), Arc::from(text));
+
+        let found = goto_definition(&p, &file, &path, offset_of(text, "greet"));
+        assert_eq!(found.len(), 1);
+        assert!(found[0].path.ends_with("utils.lua"));
+        assert_eq!(found[0].range, TextRange::new(47.into(), 52.into()));
+
+        let hover = crate::hover(&p, &file, offset_of(text, "greet")).expect("hover").markdown;
+        assert!(hover.contains("function greet(name: string)"), "{hover}");
+        assert!(hover.contains("Says hello."), "{hover}");
+
+        let offset = offset_of(
+            text, "utils.
+",
+        ) + TextSize::new(6);
+        let items = crate::completions(&p, &file, Some(&path), offset);
+        let labels: Vec<_> = items.iter().map(|i| &*i.label).collect();
+        assert!(labels.contains(&"greet"), "{labels:?}");
+        assert!(!labels.contains(&"_private"), "{labels:?}");
         let _ = std::fs::remove_dir_all(&dir);
     }
 

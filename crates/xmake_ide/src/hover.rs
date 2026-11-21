@@ -84,8 +84,7 @@ const MAX_LISTED_FILES: usize = 20;
 
 /// The files a path argument names, as links.
 fn path_hover(project: &Project, file: &AnalyzedFile, token: SyntaxToken<'_>) -> Option<String> {
-    let (path, _) = project.files().find(|(_, f)| std::ptr::eq(f.as_ref(), file))?;
-    let dir = path.parent()?;
+    let dir = crate::modules::path_of(project, file)?.parent()?;
     let found = crate::navigation::string_files(project, file, dir, token, true)?;
     if found.package {
         return None;
@@ -597,6 +596,19 @@ fn field_hover(project: &Project, file: &AnalyzedFile, field: FieldExpr<'_>) -> 
     let module = type_of(project, file, base).module()?;
     if let Some(function) = Stubs::get().member(module, func) {
         return Some(stub_page(module, function));
+    }
+    // `import("utils")`: a module of the project.
+    if let Some(local) = crate::modules::local_module(project, file, module) {
+        let functions = crate::modules::exported_functions(&local.file);
+        if let Some((statement, name, _)) = functions.into_iter().find(|(_, n, _)| *n == func) {
+            let location = local.path.display().to_string();
+            let page = function_page(project, &local.file, statement, name);
+            return Some(format!(
+                "{location}
+
+{page}"
+            ));
+        }
     }
     let script = CodeContext::at(file, base.text_range().start()).is_script();
     let known =

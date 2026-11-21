@@ -109,6 +109,32 @@ impl<'a> Items<'a> {
         });
         self.items.last_mut()
     }
+
+    /// [`Items::add`] for a label borrowed from elsewhere: a file read for
+    /// the request.
+    fn add_owned(
+        &mut self,
+        label: &str,
+        kind: CompletionKind,
+        group: u8,
+    ) -> Option<&mut CompletionItem<'a>> {
+        if !fuzzy_match(label, self.prefix)
+            || self.seen.contains(label)
+            || self.items.iter().any(|i| i.label == label)
+        {
+            return None;
+        }
+        self.items.push(CompletionItem {
+            label: Cow::Owned(label.to_owned()),
+            kind,
+            detail: None,
+            documentation: None,
+            snippet: None,
+            replace: self.replace,
+            group,
+        });
+        self.items.last_mut()
+    }
 }
 
 /// Whether `label` matches what was typed: same first character, the rest a
@@ -548,6 +574,9 @@ fn member_completions<'a>(
         }
         Some(BindingKind::Import { module }) if !method => {
             add_extension_members(items, project, module, rest);
+            if rest.is_empty() {
+                add_local_module_members(items, project, file, module);
+            }
         }
         Some(_) => {}
         None if !method && rest.is_empty() => {
@@ -577,6 +606,26 @@ fn add_instance_methods<'a>(
         if let Some(item) = items.add(name, CompletionKind::Method, group::FUNCTION) {
             item.detail = Some(Cow::Borrowed(instance.name()));
             item.documentation = instance_doc(instance, name).map(Cow::Borrowed);
+            item.snippet = Some(Cow::Owned(format!("{name}($1)")));
+        }
+    }
+}
+
+/// The functions of `module`, a module of the project.
+fn add_local_module_members(
+    items: &mut Items<'_>,
+    project: &Project,
+    file: &AnalyzedFile,
+    module: &str,
+) {
+    let Some(local) = crate::modules::local_module(project, file, module) else {
+        return;
+    };
+    for (statement, name, _) in crate::modules::exported_functions(&local.file) {
+        if let Some(item) = items.add_owned(name, CompletionKind::Function, group::FUNCTION) {
+            item.detail = Some(Cow::Owned(format!("{module} ({})", local.path.display())));
+            item.documentation =
+                crate::doc_comment::doc_comment(statement).map(|d| Cow::Owned(d.into_owned()));
             item.snippet = Some(Cow::Owned(format!("{name}($1)")));
         }
     }
