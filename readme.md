@@ -197,6 +197,14 @@ disable it for the workspace.
 
 Commands: **Restart Language Server**, **Reload the API Lists of xmake**.
 
+Tasks (**Tasks: Run Task** > `xmake`): `format` runs `xmake format` (clang-format) and
+`lint` runs `xmake check clang.tidy` (clang-tidy, its warnings in the Problems view).
+In `tasks.json`, `args` adds arguments:
+
+```json
+{ "type": "xmake", "task": "lint", "args": ["--fix"], "label": "xmake: lint --fix" }
+```
+
 Other editors: run `xmake_analyzer` over stdio and pass the settings above, without
 the `xmake-analyzer.` prefix, as `initializationOptions`.
 

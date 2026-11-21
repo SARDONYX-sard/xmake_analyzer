@@ -52,7 +52,31 @@ export function registerCompileCommands(
       const dir = projectDir(document.uri);
       if (dir) schedule(dir, document.uri);
     }),
+    // Another directory or language server: the file is written again.
+    vscode.workspace.onDidChangeConfiguration((e) => {
+      for (const folder of vscode.workspace.workspaceFolders ?? []) {
+        const affects = (key: string) =>
+          e.affectsConfiguration(`${SECTION}.compileCommands.${key}`, folder.uri);
+        if (!affects("directory") && !affects("lsp") && !affects("auto")) continue;
+        const config = vscode.workspace.getConfiguration(SECTION, folder.uri);
+        const dir = driveUpper(folder.uri.fsPath);
+        if (
+          config.get<string>("compileCommands.auto", "onSave") === "onSave" &&
+          fs.existsSync(path.join(dir, "xmake.lua"))
+        ) {
+          schedule(dir, folder.uri);
+        }
+      }
+    }),
   );
+}
+
+/**
+ * `D:\...` for `d:\...`: VS Code lowers the drive letter, and xmake writes
+ * the paths of the commands from the working directory.
+ */
+function driveUpper(fsPath: string): string {
+  return fsPath.replace(/^[a-z](?=:)/, (drive) => drive.toUpperCase());
 }
 
 /** `xmake.lua`, or a file it includes (the `xmake` language). */
@@ -69,9 +93,10 @@ function isDescription(document: vscode.TextDocument): boolean {
  * the file and its workspace folder.
  */
 function projectDir(uri: vscode.Uri): string | undefined {
-  const folder = vscode.workspace.getWorkspaceFolder(uri)?.uri.fsPath;
+  const workspaceFolder = vscode.workspace.getWorkspaceFolder(uri)?.uri.fsPath;
+  const folder = workspaceFolder && driveUpper(workspaceFolder);
   let found: string | undefined;
-  let dir = path.dirname(uri.fsPath);
+  let dir = driveUpper(path.dirname(uri.fsPath));
   for (;;) {
     if (fs.existsSync(path.join(dir, "xmake.lua"))) found = dir;
     const parent = path.dirname(dir);
@@ -88,7 +113,7 @@ async function generateNow(): Promise<void> {
   const dirs = fromActive
     ? [fromActive]
     : (vscode.workspace.workspaceFolders ?? [])
-        .map((f) => f.uri.fsPath)
+        .map((f) => driveUpper(f.uri.fsPath))
         .filter((dir) => fs.existsSync(path.join(dir, "xmake.lua")));
   if (dirs.length === 0) {
     void vscode.window.showWarningMessage("No xmake.lua found to generate compile_commands.json for.");

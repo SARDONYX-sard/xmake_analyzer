@@ -27,6 +27,54 @@
   ],
   "main": "build/extension.cjs",
   "contributes": {
+    "taskDefinitions": [
+      {
+        "type": "xmake",
+        "required": [
+          "task"
+        ],
+        "properties": {
+          "task": {
+            "type": "string",
+            "enum": [
+              "format",
+              "lint"
+            ],
+            "enumDescriptions": [
+              "`xmake format`: formats the sources of the targets with clang-format.",
+              "`xmake check clang.tidy`: checks the sources of the targets with clang-tidy."
+            ]
+          },
+          "args": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "More arguments, e.g. `--fix` for `lint`, `--dry-run` for `format`."
+          }
+        }
+      }
+    ],
+    "problemMatchers": [
+      {
+        "name": "xmake-clang-tidy",
+        "label": "clang-tidy (xmake check clang.tidy)",
+        "owner": "clang-tidy",
+        "source": "clang-tidy",
+        "fileLocation": [
+          "autoDetect",
+          "${workspaceFolder}"
+        ],
+        "pattern": {
+          "regexp": "^(.+?):(\\d+):(\\d+):\\s+(warning|error|note):\\s+(.*)$",
+          "file": 1,
+          "line": 2,
+          "column": 3,
+          "severity": 4,
+          "message": 5
+        }
+      }
+    ],
     "languages": [
       {
         "id": "xmake",
