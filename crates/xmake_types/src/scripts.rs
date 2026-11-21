@@ -30,16 +30,31 @@ pub enum ScriptArg {
 /// The LuaCATS type of the script of a script API, when `prototype` is one:
 /// `fun(target: target)|string` for `on_build(script: function (target))`.
 pub fn script_param(prototype: &str) -> Option<String> {
+    raw_script_param(prototype).map(|param| luacats_param(param).into_owned())
+}
+
+/// The `script: function (...)` parameter of `prototype`, as the manual
+/// writes it.
+pub(crate) fn raw_script_param(prototype: &str) -> Option<&str> {
+    let params = xmake_api::prototype_params(prototype);
+    // `on_install(platforms: string|array, ..., script: function (package))`
+    // of packages: the patterns before the script are written out.
+    let skip = match params.as_slice() {
+        [first, "...", ..]
+            if first.split_once(':').is_some_and(|(n, _)| n.trim() == "platforms") =>
+        {
+            2
+        }
+        _ => 0,
+    };
     // `on_prepare_files(script: function (...), {jobgraph})`: the options
     // that may follow are the extra config.
-    let params = xmake_api::prototype_params(prototype);
-    let (&param, rest) = params.split_first()?;
+    let (&param, rest) = params.get(skip..)?.split_first()?;
     if !rest.iter().all(|p| p.starts_with('{')) {
         return None;
     }
     let (name, ty) = param.split_once(':')?;
-    (name.trim() == "script" && ty.trim_start().starts_with("function"))
-        .then(|| luacats_param(param).into_owned())
+    (name.trim() == "script" && ty.trim_start().starts_with("function")).then_some(param)
 }
 
 /// The overloads of a script API: the script alone, and the script after
@@ -88,6 +103,14 @@ mod tests {
             "on_build(pattern: string, ...: string, script: fun(target: target)|string)"
         );
         assert!(script_overloads("set_kind(kind: string)").is_none());
+        assert_eq!(
+            script_overloads(
+                "on_install(platforms: string|array, ..., script: function (package))"
+            )
+            .expect("script")[0],
+            "on_install(script: fun(package: package)|string)"
+        );
+        assert!(script_overloads("set_allowedplats(platforms: string|array, ...)").is_none());
         assert!(
             script_param("on_prepare_files(script: function (target, jobgraph), {jobgraph})")
                 .is_some()

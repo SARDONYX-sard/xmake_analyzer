@@ -71,8 +71,8 @@ pub fn expected_params<'a>(
     };
     let (prototype, _) = xmake_api::doc_prototype(scope, ident.text())?;
     // `on_build("windows", function (target) end, {extra})`
-    if crate::script_param(prototype).is_some() {
-        let script = xmake_api::prototype_params(prototype)[0].split_once(':')?.1;
+    if let Some(script) = crate::scripts::raw_script_param(prototype) {
+        let script = script.split_once(':')?.1;
         let script = Type::union([Type::parse(script), Type::String]);
         let args: Vec<_> = CallExpr::cast(call)?.arg_list()?.args().collect();
         let expected = crate::script_args(&args).into_iter().map(|role| match role {
