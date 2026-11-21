@@ -175,8 +175,9 @@ saved, in the project directory (the highest directory with an `xmake.lua`):
 | Setting                                    | Default    | Meaning                                                  |
 | ------------------------------------------ | ---------- | -------------------------------------------------------- |
 | `xmake-analyzer.compileCommands.auto`      | `onSave`   | `off`: only with the command                             |
-| `xmake-analyzer.compileCommands.directory` | `.vscode`  | where it goes, relative to the project; `${workspaceFolder}` |
+| `xmake-analyzer.compileCommands.directory` | `build`    | where it goes, relative to the project; `${workspaceFolder}` |
 | `xmake-analyzer.compileCommands.lsp`       | `clangd`   | `--lsp` of `xmake project`: `clangd`, `cpptools`, `ccls`  |
+| `xmake-analyzer.compileCommands.configureClangd` | `true` | add `--compile-commands-dir` to the workspace `clangd.arguments` (package headers too) |
 
 The command `xmake Analyzer: Generate compile_commands.json` runs it on demand.
 

@@ -6,8 +6,12 @@
  * xmake project -k compile_commands --lsp=clangd <directory>
  * ```
  *
- * Settings: `xmake-analyzer.compileCommands.{auto,directory,lsp}`; the
- * command `xmake-analyzer.generateCompileCommands` runs it on demand.
+ * Settings: `xmake-analyzer.compileCommands.{auto,directory,lsp,configureClangd}`;
+ * the command `xmake-analyzer.generateCompileCommands` runs it on demand.
+ *
+ * clangd finds `compile_commands.json` in the directories above a source and
+ * their `build/`, not for the headers of the packages, outside the project:
+ * `--compile-commands-dir` in `clangd.arguments` gives it for every file.
  */
 
 import { spawn } from "node:child_process";
@@ -20,6 +24,11 @@ const SECTION = "xmake-analyzer";
 const DEBOUNCE_MS = 500;
 /** A run longer than this (a package download?) is stopped. */
 const TIMEOUT_MS = 10 * 60 * 1000;
+const DEFAULT_DIRECTORY = "build";
+const CLANGD_EXTENSION = "llvm-vs-code-extensions.vscode-clangd";
+const COMPILE_COMMANDS_DIR = "--compile-commands-dir=";
+/** The `--compile-commands-dir=...` this extension added to `clangd.arguments`. */
+const CLANGD_ARG_KEY = "clangdCompileCommandsDir";
 
 /** The state of the runs of a project directory. */
 interface Run {
@@ -32,12 +41,14 @@ interface Run {
 const runs = new Map<string, Run>();
 let output: vscode.LogOutputChannel;
 let status: vscode.StatusBarItem;
+let state: vscode.Memento;
 
 export function registerCompileCommands(
   context: vscode.ExtensionContext,
   log: vscode.LogOutputChannel,
 ): void {
   output = log;
+  state = context.workspaceState;
   status = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left);
   status.text = "$(sync~spin) compile_commands.json";
   status.tooltip = "xmake is generating compile_commands.json";
@@ -57,7 +68,7 @@ export function registerCompileCommands(
       for (const folder of vscode.workspace.workspaceFolders ?? []) {
         const affects = (key: string) =>
           e.affectsConfiguration(`${SECTION}.compileCommands.${key}`, folder.uri);
-        if (!affects("directory") && !affects("lsp") && !affects("auto")) continue;
+        if (!["directory", "lsp", "auto", "configureClangd"].some(affects)) continue;
         const config = vscode.workspace.getConfiguration(SECTION, folder.uri);
         const dir = driveUpper(folder.uri.fsPath);
         if (
@@ -141,7 +152,7 @@ function outputDir(dir: string, scope: vscode.Uri): string {
   const folder = vscode.workspace.getWorkspaceFolder(scope)?.uri.fsPath ?? dir;
   const setting = vscode.workspace
     .getConfiguration(SECTION, scope)
-    .get<string>("compileCommands.directory", ".vscode")
+    .get<string>("compileCommands.directory", DEFAULT_DIRECTORY)
     .trim()
     .replace(/\$\{workspaceFolder\}/g, folder);
   return path.resolve(dir, setting || ".");
@@ -169,6 +180,9 @@ async function generate(dir: string, scope: vscode.Uri): Promise<void> {
     const { code, text } = await exec(xmake, args, dir);
     if (code === 0) {
       output.info(`compile_commands.json written to ${target}`);
+      if (lsp === "clangd" && config.get<boolean>("compileCommands.configureClangd", true)) {
+        await configureClangd(target, scope);
+      }
     } else {
       output.error(`xmake failed (${code ?? "killed"}):\n${text}`);
       const show = "Show Output";
@@ -182,6 +196,43 @@ async function generate(dir: string, scope: vscode.Uri): Promise<void> {
     run.running = false;
     if (![...runs.values()].some((r) => r.running)) status.hide();
     if (run.again) schedule(dir, scope);
+  }
+}
+
+/**
+ * Points clangd at `target` with `--compile-commands-dir` in the workspace
+ * `clangd.arguments`, and restarts it when that changed. A directory set by
+ * the user is left alone; the one added here follows the setting.
+ */
+async function configureClangd(target: string, scope: vscode.Uri): Promise<void> {
+  if (!vscode.extensions.getExtension(CLANGD_EXTENSION)) return;
+  const folder = vscode.workspace.getWorkspaceFolder(scope)?.uri.fsPath;
+  const relative = folder && path.relative(driveUpper(folder), target);
+  const dir =
+    relative !== undefined && !relative.startsWith("..") && !path.isAbsolute(relative)
+      ? ["${workspaceFolder}", ...relative.split(path.sep).filter(Boolean)].join("/")
+      : target.split(path.sep).join("/");
+  const wanted = `${COMPILE_COMMANDS_DIR}${dir}`;
+  const clangd = vscode.workspace.getConfiguration("clangd");
+  const current = clangd.inspect<string[]>("arguments")?.workspaceValue ?? [];
+  const added = state.get<string>(CLANGD_ARG_KEY);
+  const existing = current.find((arg) => arg.startsWith(COMPILE_COMMANDS_DIR));
+  if (existing === wanted) return;
+  // Set by the user, or in the user settings: theirs.
+  if (existing !== undefined && existing !== added) return;
+  const userValue = clangd.inspect<string[]>("arguments")?.globalValue ?? [];
+  if (existing === undefined && userValue.some((arg) => arg.startsWith(COMPILE_COMMANDS_DIR))) return;
+
+  // The workspace value replaces the user one: keep the user arguments.
+  const base = existing === undefined && current.length === 0 ? userValue : current;
+  const updated = [...base.filter((arg) => arg !== existing), wanted];
+  await clangd.update("arguments", updated, vscode.ConfigurationTarget.Workspace);
+  await state.update(CLANGD_ARG_KEY, wanted);
+  output.info(`clangd.arguments: ${wanted}`);
+  try {
+    await vscode.commands.executeCommand("clangd.restart");
+  } catch (error) {
+    output.warn(`clangd.restart: ${String(error)}`);
   }
 }
 

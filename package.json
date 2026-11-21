@@ -147,9 +147,14 @@
         },
         "xmake-analyzer.compileCommands.directory": {
           "type": "string",
-          "default": ".vscode",
-          "markdownDescription": "Where `compile_commands.json` goes, relative to the project directory (the highest directory with an `xmake.lua`). `${workspaceFolder}` is replaced; `.` is the project directory itself.",
+          "default": "build",
+          "markdownDescription": "Where `compile_commands.json` goes, relative to the project directory (the highest directory with an `xmake.lua`). `${workspaceFolder}` is replaced; `.` is the project directory itself. clangd finds it in `build` (and `.`) by itself.",
           "scope": "resource"
+        },
+        "xmake-analyzer.compileCommands.configureClangd": {
+          "type": "boolean",
+          "default": true,
+          "markdownDescription": "With the clangd extension and `compileCommands.lsp` set to `clangd`: add `--compile-commands-dir` to the workspace `clangd.arguments` and restart clangd, so that the headers of the packages, outside the project, are parsed with the commands of the project too. A `--compile-commands-dir` of your own is kept."
         },
         "xmake-analyzer.compileCommands.lsp": {
           "type": "string",
