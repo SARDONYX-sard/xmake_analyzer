@@ -279,3 +279,35 @@ fn flag_tools() {
     assert!(complete("target('a')\n  add_cxxflags('/W$')").is_empty());
     assert!(complete("target('a')\n  add_cxxflags('cl::/W$')").is_empty());
 }
+
+#[test]
+fn module_functions_of_the_scope() {
+    // Scripts have all of `os`; the description only some.
+    let script = complete(
+        "target('a')
+ on_load(function (t)
+ os.io$
+ end)
+",
+    );
+    assert!(has(&script, "iorunv"), "{script:?}");
+    let description = complete(
+        "os.io$
+",
+    );
+    assert!(!has(&description, "iorunv"), "{description:?}");
+    assert!(has(
+        &complete(
+            "os.get$
+"
+        ),
+        "getenv"
+    ));
+    assert!(has(
+        &complete(
+            "table.jo$
+"
+        ),
+        "join2"
+    ));
+}

@@ -547,9 +547,15 @@ fn member_completions<'a>(
     if let Some(owner) = ty.owner() {
         // `s:upper()` calls `string.upper(s)`: on strings, every function is a method.
         let is_string = owner == "string";
+        // In the description, a builtin module has fewer functions than the
+        // stubs describe: `os.iorunv` is for scripts only.
+        let script = CodeContext::at(file, offset).is_script();
+        let module = (!script).then(|| project.db.module(owner, false)).flatten();
+        let available = |name: &str| module.is_none_or(|m| m.functions.iter().any(|f| f == name));
         for function in xmake_api::Stubs::get()
             .members(owner)
             .filter(|f| f.method == method || is_string && method)
+            .filter(|f| available(f.name))
         {
             let kind = if method { CompletionKind::Method } else { CompletionKind::Function };
             if let Some(item) = items.add(function.name, kind, group::FUNCTION) {
