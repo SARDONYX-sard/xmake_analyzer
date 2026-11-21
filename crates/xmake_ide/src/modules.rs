@@ -7,9 +7,12 @@ use std::{
     sync::Arc,
 };
 
-use xmake_syntax::{SyntaxKind, SyntaxNode, TextRange};
+use xmake_syntax::{
+    SyntaxKind, SyntaxNode, TextRange,
+    ast::{AstNode, FieldExpr, NameRef},
+};
 
-use crate::{AnalyzedFile, Project};
+use crate::{AnalyzedFile, BindingKind, Project, resolve::resolve};
 
 /// A module file of the project.
 pub(crate) struct LocalModule {
@@ -66,4 +69,38 @@ pub(crate) fn exported_functions(file: &AnalyzedFile) -> Vec<(SyntaxNode<'_>, &s
             (!name.starts_with('_')).then_some((statement, name, range))
         })
         .collect()
+}
+
+/// The uses of `name`, a function of the module file `module`, in the files
+/// of the project: `m.name` with `m` imported from that file.
+pub(crate) fn member_uses<'a>(
+    project: &'a Project,
+    module: &Path,
+    name: &str,
+) -> Vec<(&'a Path, TextRange)> {
+    let mut out = Vec::new();
+    for (path, file) in project.files() {
+        let Some(dir) = path.parent() else {
+            continue;
+        };
+        let fields = file.root().descendants().filter_map(FieldExpr::cast);
+        for field in fields {
+            let Some(member) = field.field().filter(|f| f.text() == name) else {
+                continue;
+            };
+            let Some(ident) = field.base().and_then(NameRef::cast).and_then(|b| b.ident()) else {
+                continue;
+            };
+            let Some(BindingKind::Import { module: imported }) =
+                resolve(file, ident).map(|b| b.kind)
+            else {
+                continue;
+            };
+            let resolved = module_path(dir, imported).map(|p| crate::paths::normalize(&p));
+            if resolved.as_deref() == Some(module) {
+                out.push((path, member.text_range()));
+            }
+        }
+    }
+    out
 }

@@ -490,7 +490,8 @@ pub(crate) fn document_links(
     let links = xmake_ide::document_links(&server.project, file, &path);
     let links = links.into_iter().map(|(range, target)| lsp_types::DocumentLink {
         range: conv::range(file, range),
-        tooltip: Some(target.display().to_string()),
+        // The hover shows the path: VS Code adds the tooltip to it.
+        tooltip: None,
         target: Some(conv::path_to_uri(&target)),
         data: None,
     });

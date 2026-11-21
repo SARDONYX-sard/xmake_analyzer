@@ -93,8 +93,9 @@ fn path_hover(project: &Project, file: &AnalyzedFile, token: SyntaxToken<'_>) ->
     match found.files.as_slice() {
         [] if found.glob => out.push_str("No file matches."),
         [] => out.push_str("Not found."),
+        // The string is a link already (`document_links`): the path only.
         [single] if !found.glob => {
-            let _ = write!(out, "[{}]({})", single.display(), file_uri(single));
+            let _ = write!(out, "`{}`", single.display());
         }
         files => {
             let plural = if files.len() == 1 { "" } else { "s" };

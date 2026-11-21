@@ -348,6 +348,15 @@ pub fn references<'a>(
     path: &'a Path,
     offset: TextSize,
 ) -> Vec<NavTarget<'a>> {
+    // `greet` of `utils.greet`: the function in `utils.lua` and its uses.
+    if let Some(target) = module_member_at(project, file, offset)
+        && let Some(token) = token_at(file, offset)
+    {
+        let uses = crate::modules::member_uses(project, &target.path, token.text());
+        let uses =
+            uses.into_iter().map(|(path, range)| NavTarget { path: Cow::Borrowed(path), range });
+        return std::iter::once(target).chain(uses).collect();
+    }
     let Some((symbol, _)) = symbol_at(file, offset) else {
         return Vec::new();
     };
@@ -371,6 +380,10 @@ pub fn references<'a>(
                 for range in global_uses(file, name) {
                     out.push(NavTarget { path: Cow::Borrowed(path), range });
                 }
+            }
+            // A function of a module: `m.name` where it is imported.
+            for (path, range) in crate::modules::member_uses(project, path, name) {
+                out.push(NavTarget { path: Cow::Borrowed(path), range });
             }
             out
         }
@@ -456,6 +469,18 @@ pub fn code_lenses<'a>(
             }
         }
         out.push((def.name_range, uses));
+    }
+    // The functions of a module: their uses here and where it is imported.
+    if file.kind == crate::FileKind::Script {
+        for (_, name, range) in crate::modules::exported_functions(file) {
+            let local = global_uses(file, name).into_iter().filter(|r| *r != range);
+            let mut uses: Vec<NavTarget<'a>> =
+                local.map(|range| NavTarget { path: Cow::Borrowed(path), range }).collect();
+            for (other, range) in crate::modules::member_uses(project, path, name) {
+                uses.push(NavTarget { path: Cow::Borrowed(other), range });
+            }
+            out.push((range, uses));
+        }
     }
     out
 }
@@ -572,7 +597,7 @@ target('app')
         assert!(hover.starts_with("1 file:"), "{hover}");
         assert!(hover.contains("main.c](file:///"), "{hover}");
         let hover = crate::hover(&p, &file, offset_of(text, "common")).expect("hover").markdown;
-        assert!(hover.contains("common.lua](file:///"), "{hover}");
+        assert!(hover.starts_with('`') && hover.contains("common.lua"), "{hover}");
         let _ = std::fs::remove_dir_all(&dir);
     }
 
@@ -618,6 +643,55 @@ function _private() end
         let labels: Vec<_> = items.iter().map(|i| &*i.label).collect();
         assert!(labels.contains(&"greet"), "{labels:?}");
         assert!(!labels.contains(&"_private"), "{labels:?}");
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn modules_of_included_files() {
+        let dir = std::env::temp_dir().join(format!("xmake-ide-modinc-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(dir.join("scripts")).expect("dirs");
+        let utils = "function clang_format(fix) end
+function run() clang_format(true) end
+";
+        std::fs::write(dir.join("scripts/task_utils.lua"), utils).expect("file");
+        let tasks = "task('fmt')
+  on_run(function ()
+    import('task_utils', {rootdir = os.scriptdir()})
+    task_utils.clang_format(true)
+  end)
+task_end()
+";
+        std::fs::write(dir.join("scripts/tasks.lua"), tasks).expect("file");
+        let mut p = project(&[]);
+        p.set_file(
+            dir.join("xmake.lua"),
+            Arc::from(
+                "includes('scripts/tasks.lua')
+",
+            ),
+        );
+        p.update_includes();
+        let tasks_path = crate::paths::normalize(&dir.join("scripts/tasks.lua"));
+        let tasks_file = Arc::clone(p.file(&tasks_path).expect("included"));
+
+        let found = goto_definition(&p, &tasks_file, &tasks_path, offset_of(tasks, "clang_format"));
+        assert_eq!(found.len(), 1);
+        assert!(found[0].path.ends_with("task_utils.lua"));
+
+        // The module opened: its functions count the uses in tasks.lua.
+        let utils_path = crate::paths::normalize(&dir.join("scripts/task_utils.lua"));
+        let utils_file = p.set_file(utils_path.clone(), Arc::from(utils));
+        let lenses = code_lenses(&p, &utils_file, &utils_path);
+        let counts: Vec<_> = lenses.iter().map(|(r, uses)| (&utils[*r], uses.len())).collect();
+        assert_eq!(counts, [("clang_format", 2), ("run", 0)]);
+        let refs = references(&p, &tasks_file, &tasks_path, offset_of(tasks, "clang_format"));
+        assert_eq!(
+            refs.len(),
+            2,
+            "{:?}",
+            refs.iter().map(|r| r.path.display().to_string()).collect::<Vec<_>>()
+        );
         let _ = std::fs::remove_dir_all(&dir);
     }
 
