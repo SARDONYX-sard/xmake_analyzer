@@ -215,9 +215,10 @@ async function reloadXmake(): Promise<void> {
 // === Included files ===
 
 /**
- * The included files are description files: give them the `xmake` language
- * and keep Lua language servers away, which would report the xmake functions
- * as undefined globals.
+ * The included files and the imported modules (`import("utils")`) are xmake
+ * files: give them the `xmake` language and keep Lua language servers away,
+ * which would report the xmake functions as undefined globals (and miss that
+ * `raise` does not return).
  */
 async function onIncludedFiles(uris: string[]): Promise<void> {
   const files = uris.map((uri) => vscode.Uri.parse(uri));

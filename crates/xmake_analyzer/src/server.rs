@@ -70,6 +70,8 @@ pub(crate) struct Server {
     /// The local repositories (`add_repositories`) of the package index
     /// asked for last.
     repositories: Option<Vec<PathBuf>>,
+    /// The included files and imported modules the client was told last.
+    xmake_files: Option<Vec<String>>,
     events_tx: Sender<Event>,
     events_rx: Receiver<Event>,
     next_request_id: i32,
@@ -109,6 +111,7 @@ impl Server {
             watch_files,
             luajit: None,
             repositories: None,
+            xmake_files: None,
             events_tx,
             events_rx,
             next_request_id: 0,
@@ -322,11 +325,15 @@ impl Server {
         let old_includes: Vec<String> =
             Project::include_values(file).into_iter().map(str::to_owned).collect();
         let old_repositories = file.outline.repositories.clone();
+        let old_imports: Vec<String> =
+            Project::import_values(file).into_iter().map(str::to_owned).collect();
         let file = self.project.set_file(path.clone(), Arc::from(text));
         let doc = params.text_document;
         self.open.insert(path, OpenDoc { uri: doc.uri, version: doc.version });
         // Following includes reads the disk: only when they were edited.
-        if Project::include_values(&file) != old_includes {
+        if Project::include_values(&file) != old_includes
+            || Project::import_values(&file) != old_imports
+        {
             self.update_includes();
         } else if file.outline.repositories != old_repositories {
             self.load_packages();
@@ -480,19 +487,25 @@ impl Server {
         });
     }
 
+    /// Follows the includes, and tells the client the xmake files that are
+    /// not named `xmake.lua`: the included files and the imported modules.
     fn update_includes(&mut self) {
-        let changed = self.project.update_includes();
+        self.project.update_includes();
         self.load_packages();
-        if !changed {
-            return;
-        }
+        let modules = self.project.imported_modules();
         let mut uris: Vec<String> = self
             .project
             .included_files()
+            .chain(modules.iter().map(PathBuf::as_path))
             .map(|p| conv::path_to_uri(p).as_str().to_owned())
             .collect();
         uris.sort();
-        log::info!("{} files included by xmake.lua files", uris.len());
+        uris.dedup();
+        if self.xmake_files.as_ref() == Some(&uris) {
+            return;
+        }
+        self.xmake_files = Some(uris.clone());
+        log::info!("{} files included or imported by xmake.lua files", uris.len());
         self.send(
             Notification::new("xmake-analyzer/includedFiles".to_owned(), IncludedFiles { uris })
                 .into(),

@@ -31,6 +31,18 @@ pub fn normalize(path: &Path) -> PathBuf {
     out
 }
 
+/// The file of the module `module` imported by a script of `dir`: `a.b` is
+/// `a/b.lua`, `a/b/main.lua` or `a/b/xmake.lua`. `None` for the modules of
+/// xmake (`core.base.json`).
+pub fn resolve_module(dir: &Path, module: &str) -> Option<PathBuf> {
+    let relative: PathBuf = module.split('.').collect();
+    let module = dir.join(relative);
+    [module.with_extension("lua"), module.join("main.lua"), module.join("xmake.lua")]
+        .into_iter()
+        .find(|c| c.is_file())
+        .map(|p| normalize(&p))
+}
+
 /// The description files `includes(value)` loads, from a script in `dir`:
 /// a file, `dir/xmake.lua` for a directory, or the matches of a glob.
 /// Builtin includes (`@builtin/check`) have no file.

@@ -714,6 +714,8 @@ task_end()
         let lenses = code_lenses(&p, &utils_file, &utils_path);
         let counts: Vec<_> = lenses.iter().map(|(r, uses)| (&utils[*r], uses.len())).collect();
         assert_eq!(counts, [("clang_format", 2), ("run", 0)]);
+        // The client is told: an xmake file, not plain Lua.
+        assert_eq!(p.imported_modules(), [utils_path.clone()]);
         let refs = references(&p, &tasks_file, &tasks_path, offset_of(tasks, "clang_format"));
         assert_eq!(
             refs.len(),

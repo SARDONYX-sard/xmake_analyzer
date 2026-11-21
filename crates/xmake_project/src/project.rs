@@ -130,6 +130,37 @@ impl Project {
         dirs
     }
 
+    /// The modules of `file`: `"utils"` of `import("utils")`.
+    pub fn import_values(file: &AnalyzedFile) -> Vec<&str> {
+        use xmake_syntax::ast::{AstNode, CallExpr, Literal};
+        file.root()
+            .descendants()
+            .filter_map(CallExpr::cast)
+            .filter(|c| c.callee_name() == Some("import"))
+            .filter_map(|c| Literal::cast(c.arg(0)?)?.token())
+            .filter(|t| t.kind() == xmake_syntax::SyntaxKind::STRING)
+            .map(|t| &file.text[crate::outline::content_range(t)])
+            .collect()
+    }
+
+    /// The module files of the project imported by its files (`import("utils")`
+    /// next to the script), sorted.
+    pub fn imported_modules(&self) -> Vec<PathBuf> {
+        let mut out: Vec<PathBuf> = self
+            .files
+            .iter()
+            .filter_map(|(path, file)| Some((path.parent()?, file)))
+            .flat_map(|(dir, file)| {
+                Project::import_values(file)
+                    .into_iter()
+                    .filter_map(move |module| paths::resolve_module(dir, module))
+            })
+            .collect();
+        out.sort();
+        out.dedup();
+        out
+    }
+
     /// Follows the `includes()` of every file: loads the included files from
     /// the disk, analyzes them as description files, and again for what
     /// they include. Returns whether the set of included files changed.

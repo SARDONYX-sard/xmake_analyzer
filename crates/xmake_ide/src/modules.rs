@@ -28,11 +28,7 @@ pub(crate) fn path_of<'p>(project: &'p Project, file: &AnalyzedFile) -> Option<&
 /// The file of `module` for a script in `dir`: `a.b` is `a/b.lua`,
 /// `a/b/main.lua` or `a/b/xmake.lua`.
 pub(crate) fn module_path(dir: &Path, module: &str) -> Option<PathBuf> {
-    let relative: PathBuf = module.split('.').collect();
-    let module = dir.join(relative);
-    [module.with_extension("lua"), module.join("main.lua"), module.join("xmake.lua")]
-        .into_iter()
-        .find(|c| c.is_file())
+    crate::paths::resolve_module(dir, module)
 }
 
 /// The module `module` imported by `file`, read from the project or the disk.
