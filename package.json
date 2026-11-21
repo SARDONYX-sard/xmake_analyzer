@@ -2,7 +2,7 @@
   "name": "xmake-analyzer",
   "displayName": "xmake Analyzer",
   "description": "Language server for xmake build scripts: scope-aware completion, diagnostics, hover, go to definition, references, rename, inlay hints and formatting.",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "icon": "images/icon.png",
   "publisher": "SARDONYX",
   "license": "MIT OR Apache-2.0",
