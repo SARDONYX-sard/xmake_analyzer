@@ -19,6 +19,7 @@ runs.
 | Refactorings | `target("app")` ... `target_end()` ⇄ `target("app", function () ... end)`, for every scope (option, rule, package, ...) |
 | Hover       | rustdoc-like pages: signature, summary, `# Examples`, `# Notes`, link to the manual (`crates/xmake_api/docs/`)        |
 | Navigation  | hover · definition · declaration · references · highlights · rename (locals, targets, options, rules, toolchains)             |
+| Paths       | `includes`, `import`, `add_files`, ...: the files in the hover; links (underlined) on the strings naming one file |
 | Paths       | go to the files of `includes("../")`, `add_files("src/**.c\|main.c")`, `import("modules.x")`                                  |
 | Editing     | signature help · inlay hints (`function (target: target)`, parameter names, `end) -- on_build`) · formatting                 |
 | Display     | semantic tokens · folding · document and workspace symbols · reference counts of targets (code lens)                          |

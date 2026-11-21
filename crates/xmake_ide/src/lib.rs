@@ -43,7 +43,8 @@ pub use crate::{
     hover::{Hover, hover},
     inlay::{InlayHint, InlayKind, inlay_hints},
     navigation::{
-        NavTarget, code_lenses, goto_definition, highlights, prepare_rename, references, rename,
+        NavTarget, code_lenses, document_links, goto_definition, highlights, prepare_rename,
+        references, rename,
     },
     semantic::{SemanticToken, TokenModifier, TokenType, semantic_tokens},
     signature::{SignatureHelp, signature_help},

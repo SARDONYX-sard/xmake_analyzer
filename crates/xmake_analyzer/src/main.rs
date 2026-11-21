@@ -129,6 +129,10 @@ fn capabilities() -> ServerCapabilities {
             },
         )),
         code_lens_provider: Some(lsp_types::CodeLensOptions { resolve_provider: Some(false) }),
+        document_link_provider: Some(lsp_types::DocumentLinkOptions {
+            resolve_provider: Some(false),
+            work_done_progress_options: WorkDoneProgressOptions::default(),
+        }),
         document_formatting_provider: Some(OneOf::Left(true)),
         ..Default::default()
     }

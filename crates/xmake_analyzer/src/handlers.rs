@@ -480,6 +480,23 @@ pub(crate) fn code_actions(
     Some(actions)
 }
 
+/// Links on the strings naming a file: `includes("sub")`, `import("utils")`,
+/// `add_files("main.c")`; the client underlines them.
+pub(crate) fn document_links(
+    server: &Server,
+    params: lsp_types::DocumentLinkParams,
+) -> Option<Vec<lsp_types::DocumentLink>> {
+    let (path, file) = server.file(&params.text_document.uri)?;
+    let links = xmake_ide::document_links(&server.project, file, &path);
+    let links = links.into_iter().map(|(range, target)| lsp_types::DocumentLink {
+        range: conv::range(file, range),
+        tooltip: Some(target.display().to_string()),
+        target: Some(conv::path_to_uri(&target)),
+        data: None,
+    });
+    Some(links.collect())
+}
+
 /// "N references" above each target, option, rule, ...; "▶ Run" above the
 /// tasks runnable from the command line, when the client can run them.
 pub(crate) fn code_lenses(

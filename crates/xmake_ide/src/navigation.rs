@@ -233,39 +233,85 @@ fn goto_files<'a>(
     let Some(token) = token_at(file, offset).filter(|t| t.kind().is_string()) else {
         return Vec::new();
     };
-    let Some((call, index)) = enclosing_call(token) else {
+    let Some(dir) = path.parent() else {
         return Vec::new();
     };
-    let (Some(name), Some(value), Some(dir)) = (
-        call.callee_name(),
-        token.parent().and_then(Literal::cast).and_then(|l| l.string_value()),
-        path.parent(),
-    ) else {
-        return Vec::new();
-    };
-    let found = match name {
+    string_files(project, file, dir, token, true)
+        .map(|f| f.files)
+        .unwrap_or_default()
+        .into_iter()
+        .map(|p| NavTarget { path: Cow::Owned(p), range: TextRange::default() })
+        .collect()
+}
+
+/// The files a string argument names.
+pub(crate) struct StringFiles {
+    /// The package of `add_requires`, not a path.
+    pub package: bool,
+    /// A glob: `src/*.c`.
+    pub glob: bool,
+    pub files: Vec<PathBuf>,
+}
+
+/// What the string `token`, an argument of a call in a script of `dir`,
+/// names on the disk. Globs are expanded only when `globs`.
+pub(crate) fn string_files(
+    project: &Project,
+    file: &AnalyzedFile,
+    dir: &Path,
+    token: SyntaxToken<'_>,
+    globs: bool,
+) -> Option<StringFiles> {
+    let (call, index) = enclosing_call(token)?;
+    let name = call.callee_name()?;
+    let value = token.parent().and_then(Literal::cast).and_then(|l| l.string_value())?;
+    let glob = value.contains('*');
+    if glob && !globs {
+        return None;
+    }
+    let (package, files) = match name {
         // A package of the repositories, unless the project defines it.
         "add_requires" => {
             let (package, _) = crate::packages::split_requirement(&value);
             if project.scope_of(file).definitions(Scope::Package).any(|d| d.name() == package) {
-                return Vec::new();
+                return None;
             }
-            project.packages.get(package).map(|e| e.path.clone()).into_iter().collect()
+            (true, project.packages.get(package).map(|e| e.path.clone()).into_iter().collect())
         }
-        "includes" | "add_subdirs" | "add_subfiles" => crate::paths::resolve_include(dir, &value),
+        "includes" | "add_subdirs" | "add_subfiles" => {
+            (false, crate::paths::resolve_include(dir, &value))
+        }
         "import" if index == 0 => {
             let relative: PathBuf = value.split('.').collect();
             let module = dir.join(relative);
             let candidates =
                 [module.with_extension("lua"), module.join("main.lua"), module.join("xmake.lua")];
-            candidates.into_iter().find(|c| c.is_file()).into_iter().collect()
+            (false, candidates.into_iter().find(|c| c.is_file()).into_iter().collect())
         }
-        _ if is_paths_api(project, name) => crate::paths::resolve_paths(dir, &value),
-        _ => return Vec::new(),
+        _ if is_paths_api(project, name) => (false, crate::paths::resolve_paths(dir, &value)),
+        _ => return None,
     };
-    found
-        .into_iter()
-        .map(|p| NavTarget { path: Cow::Owned(p), range: TextRange::default() })
+    Some(StringFiles { package, glob, files })
+}
+
+/// The strings naming one file (`includes("sub")`, `import("utils")`,
+/// `add_files("main.c")`, a package of `add_requires`), for the client to
+/// underline and open. Globs are left to go-to-definition.
+pub fn document_links(
+    project: &Project,
+    file: &AnalyzedFile,
+    path: &Path,
+) -> Vec<(TextRange, PathBuf)> {
+    let Some(dir) = path.parent() else {
+        return Vec::new();
+    };
+    let strings = file.root().descendant_tokens().filter(|t| t.kind().is_string());
+    strings
+        .filter_map(|token| {
+            let found = string_files(project, file, dir, token, false)?;
+            let [target] = <[PathBuf; 1]>::try_from(found.files).ok()?;
+            Some((content_range(token), target))
+        })
         .collect()
 }
 
@@ -499,6 +545,16 @@ target('app')
         let sources = goto_definition(&p, &file, &path, offset_of(text, "src/"));
         assert_eq!(sources.len(), 1);
         assert!(sources[0].path.ends_with("main.c"));
+
+        // One file: a link; a glob: none, its files are in the hover.
+        let links = document_links(&p, &file, &path);
+        assert_eq!(links.len(), 1);
+        assert_eq!(&text[links[0].0], "../common.lua");
+        let hover = crate::hover(&p, &file, offset_of(text, "src/")).expect("hover").markdown;
+        assert!(hover.starts_with("1 file:"), "{hover}");
+        assert!(hover.contains("main.c](file:///"), "{hover}");
+        let hover = crate::hover(&p, &file, offset_of(text, "common")).expect("hover").markdown;
+        assert!(hover.contains("common.lua](file:///"), "{hover}");
         let _ = std::fs::remove_dir_all(&dir);
     }
 

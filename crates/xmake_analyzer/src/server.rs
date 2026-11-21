@@ -182,6 +182,7 @@ impl Server {
             }
             CodeActionRequest::METHOD => self.respond(req, handlers::code_actions),
             CodeLensRequest::METHOD => self.respond(req, handlers::code_lenses),
+            DocumentLinkRequest::METHOD => self.respond(req, handlers::document_links),
             Formatting::METHOD => self.respond(req, handlers::formatting),
             References::METHOD => self.respond(req, handlers::references),
             DocumentHighlightRequest::METHOD => self.respond(req, handlers::highlights),

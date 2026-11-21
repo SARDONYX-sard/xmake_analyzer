@@ -59,6 +59,12 @@ pub fn hover(project: &Project, file: &AnalyzedFile, offset: TextSize) -> Option
     {
         return Some(Hover { range, markdown: crate::variables::hover(project, file, name) });
     }
+    // `includes("sub")`, `add_files("src/*.c")`: the files.
+    if token.kind().is_string()
+        && let Some(markdown) = path_hover(project, file, token)
+    {
+        return Some(Hover { range: token.text_range(), markdown });
+    }
     let markdown = match token.kind() {
         // `---@param path string`
         SyntaxKind::LINE_COMMENT => return annotation_hover(project, file, token, offset),
@@ -71,6 +77,56 @@ pub fn hover(project: &Project, file: &AnalyzedFile, offset: TextSize) -> Option
         _ => return None,
     };
     Some(Hover { range: token.text_range(), markdown })
+}
+
+/// At most this many files are listed for a glob.
+const MAX_LISTED_FILES: usize = 20;
+
+/// The files a path argument names, as links.
+fn path_hover(project: &Project, file: &AnalyzedFile, token: SyntaxToken<'_>) -> Option<String> {
+    let (path, _) = project.files().find(|(_, f)| std::ptr::eq(f.as_ref(), file))?;
+    let dir = path.parent()?;
+    let found = crate::navigation::string_files(project, file, dir, token, true)?;
+    if found.package {
+        return None;
+    }
+    let mut out = String::new();
+    match found.files.as_slice() {
+        [] if found.glob => out.push_str("No file matches."),
+        [] => out.push_str("Not found."),
+        [single] if !found.glob => {
+            let _ = write!(out, "[{}]({})", single.display(), file_uri(single));
+        }
+        files => {
+            let plural = if files.len() == 1 { "" } else { "s" };
+            let _ = writeln!(out, "{} file{plural}:\n", files.len());
+            for file in files.iter().take(MAX_LISTED_FILES) {
+                let shown = file.strip_prefix(dir).unwrap_or(file);
+                let _ = writeln!(out, "- [{}]({})", shown.display(), file_uri(file));
+            }
+            if files.len() > MAX_LISTED_FILES {
+                let _ = writeln!(out, "- ...");
+            }
+        }
+    }
+    Some(out)
+}
+
+/// `file:///D:/a%20b/c.lua`
+fn file_uri(path: &std::path::Path) -> String {
+    let path = path.to_string_lossy().replace('\\', "/");
+    let mut out = String::from(if path.starts_with('/') { "file://" } else { "file:///" });
+    for c in path.chars() {
+        match c {
+            ' ' => out.push_str("%20"),
+            '#' => out.push_str("%23"),
+            '%' => out.push_str("%25"),
+            '(' => out.push_str("%28"),
+            ')' => out.push_str("%29"),
+            _ => out.push(c),
+        }
+    }
+    out
 }
 
 /// A rustdoc-like page: location, signature, rule, documentation, link.
