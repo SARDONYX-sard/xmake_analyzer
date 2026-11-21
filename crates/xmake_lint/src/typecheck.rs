@@ -172,6 +172,8 @@ mod tests {
     set_default('false')
     set_default(false)
     set_kind(42)
+    set_warnings('all', 'error', {private = true})
+    set_warnings('all', 1)
     add_files('a.c', 'b.c', {defines = 'X'})
     add_files(1)
     on_load(function (t)
@@ -208,6 +210,7 @@ mod tests {
             [
                 "'false' `default` expects `boolean`, found `\"false\"`",
                 "42 `kind` expects `string`, found `integer`",
+                "1 `warnings` expects `string|table`, found `integer`",
                 "1 `files` expects `string|any[]`, found `integer`",
                 "1 `dst` expects `string`, found `integer`",
                 "1 `name` expects `string`, found `integer`",

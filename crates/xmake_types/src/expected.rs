@@ -108,6 +108,20 @@ pub fn expected_params<'a>(
             variadic: false,
         });
     }
+    // xmake takes any number of values for the values and paths APIs, also
+    // when the manual writes one before the options: `set_warnings("all",
+    // "error")` for `set_warnings(warnings: string, {private})`. The options
+    // come after the values: a table is accepted. `set_kind(kind: string)`,
+    // without options, keeps its single value.
+    let kind = scope.and_then(|s| project.db.visible_api(s, ident.text())).map(|api| api.kind);
+    if matches!(kind, Some(xmake_api::ApiKind::Values | xmake_api::ApiKind::Paths))
+        && out.last().is_some_and(|p| p.name == "options")
+        && !out.iter().any(|p| p.variadic)
+        && let Some(last) = out.iter_mut().rfind(|p| p.name != "options")
+    {
+        last.variadic = true;
+        last.ty = Type::union([last.ty.clone(), Type::Table]);
+    }
     // `add_files(files, ..., {options})`: after the repeated files comes the
     // table of options; checking it against `files` would be wrong.
     if out.iter().any(|p| p.variadic) && out.last().is_some_and(|p| p.name == "options") {
