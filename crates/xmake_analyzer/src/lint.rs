@@ -110,7 +110,8 @@ pub(crate) fn run(args: &[String]) -> i32 {
     }
     project.update_includes();
     let globaldir = xmake_ide::default_globaldir();
-    project.packages = Arc::new(xmake_ide::PackageIndex::load(globaldir.as_deref(), &[]));
+    let repositories = project.local_repositories();
+    project.packages = Arc::new(xmake_ide::PackageIndex::load(globaldir.as_deref(), &repositories));
     if fix && apply_fixes(&mut project, &levels) {
         // Report what is left.
         project.update_includes();

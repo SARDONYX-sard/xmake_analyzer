@@ -86,6 +86,9 @@ pub struct Outline {
     /// Arguments of `includes` that cannot be evaluated: the project may
     /// define more than what is known.
     pub unknown_includes: Vec<TextRange>,
+    /// `add_repositories("local-repo repo")`: the paths of the local
+    /// repositories, as written (relative to the script, or absolute).
+    pub repositories: Vec<String>,
     /// `set_xmakever("2.8.0")`.
     pub xmakever: Option<(Version, TextRange)>,
     pub errors: Vec<OutlineError>,
@@ -218,6 +221,18 @@ impl Walker {
                         self.outline.computed_includes.push(path);
                     } else if arg.kind() != SyntaxKind::TABLE_EXPR {
                         self.outline.unknown_includes.push(arg.text_range());
+                    }
+                }
+            }
+            "add_repositories" => {
+                for (_, value) in string_args(call) {
+                    // `"name url [branch]"`: a path, not a git URL.
+                    let mut words = value.split_whitespace();
+                    let (Some(_), Some(url)) = (words.next(), words.next()) else {
+                        continue;
+                    };
+                    if !url.contains("://") && !url.starts_with("git@") {
+                        self.outline.repositories.push(url.to_owned());
                     }
                 }
             }
@@ -478,6 +493,16 @@ mod tests {
         let app = &o.definitions[0];
         assert!(text[app.full_range].ends_with("target_end()"));
         assert!(o.errors.is_empty());
+    }
+
+    #[test]
+    fn local_repositories() {
+        let o = outline(
+            "add_repositories('local-repo repo', 'xmake-repo https://github.com/xmake-io/xmake-repo.git dev')
+add_repositories('ssh git@github.com:a/b.git')
+",
+        );
+        assert_eq!(o.repositories, ["repo"]);
     }
 
     #[test]

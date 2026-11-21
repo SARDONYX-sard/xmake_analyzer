@@ -113,6 +113,23 @@ impl Project {
         literal.chain(file.outline.computed_includes.iter().map(String::as_str)).collect()
     }
 
+    /// The directories of the local repositories of `add_repositories`, in
+    /// every file: relative paths are relative to the script.
+    pub fn local_repositories(&self) -> Vec<PathBuf> {
+        let mut dirs: Vec<PathBuf> = self
+            .files
+            .iter()
+            .flat_map(|(path, file)| {
+                let dir = path.parent().unwrap_or(Path::new(""));
+                file.outline.repositories.iter().map(move |repo| paths::normalize(&dir.join(repo)))
+            })
+            .filter(|dir| dir.is_dir())
+            .collect();
+        dirs.sort();
+        dirs.dedup();
+        dirs
+    }
+
     /// Follows the `includes()` of every file: loads the included files from
     /// the disk, analyzes them as description files, and again for what
     /// they include. Returns whether the set of included files changed.

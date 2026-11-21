@@ -51,6 +51,11 @@ impl PackageIndex {
     /// extra repository directories (`add_repositories` of the project).
     pub fn load(globaldir: Option<&Path>, extra: &[PathBuf]) -> PackageIndex {
         let mut entries = Vec::new();
+        for dir in extra {
+            let name =
+                dir.file_name().map_or_else(String::new, |n| n.to_string_lossy().into_owned());
+            index_repository(dir, &name, &mut entries);
+        }
         if let Some(root) = globaldir.map(|g| g.join("repositories"))
             && let Ok(repos) = std::fs::read_dir(&root)
         {
@@ -59,11 +64,7 @@ impl PackageIndex {
                 index_repository(&repo.path(), &name, &mut entries);
             }
         }
-        for dir in extra {
-            let name =
-                dir.file_name().map_or_else(String::new, |n| n.to_string_lossy().into_owned());
-            index_repository(dir, &name, &mut entries);
-        }
+        // Stable: the project repositories, indexed first, stay first.
         entries.sort_by(|a, b| a.name.cmp(&b.name));
         // A package of the project repository overrides the official one.
         entries.dedup_by(|later, earlier| later.name == earlier.name);
@@ -278,6 +279,19 @@ mod tests {
         let zlib = index.get("zlib").expect("zlib");
         assert_eq!(zlib.repository, "xmake-repo");
         assert_eq!(zlib.details().map(|d| d.versions), Some(vec!["v1.3".to_owned()]));
+
+        // A package of a local repository (`add_repositories`) overrides it.
+        let local = dir.join("local-repo");
+        let package = local.join("packages/z/zlib");
+        std::fs::create_dir_all(&package).expect("dirs");
+        std::fs::write(
+            package.join("xmake.lua"),
+            "package('zlib')
+",
+        )
+        .expect("file");
+        let index = PackageIndex::load(Some(&dir), &[local]);
+        assert_eq!(index.get("zlib").expect("zlib").repository, "local-repo");
         let _ = std::fs::remove_dir_all(&dir);
     }
 }

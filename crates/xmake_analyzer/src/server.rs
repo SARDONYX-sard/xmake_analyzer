@@ -37,8 +37,9 @@ use crate::{
 enum Event {
     Probed(Result<Box<Probe>, String>),
     Scanned(Vec<(PathBuf, String)>),
-    /// The packages of the repositories.
-    Packages(Arc<xmake_ide::PackageIndex>),
+    /// The packages of the repositories, with the local repositories
+    /// (`add_repositories`) indexed.
+    Packages(Arc<xmake_ide::PackageIndex>, Vec<PathBuf>),
 }
 
 /// `xmake-analyzer/includedFiles`: the URIs of the `.lua` files loaded by
@@ -66,6 +67,9 @@ pub(crate) struct Server {
     watch_files: bool,
     /// The Lua runtime of the installed xmake, once probed.
     luajit: Option<bool>,
+    /// The local repositories (`add_repositories`) of the package index
+    /// asked for last.
+    repositories: Option<Vec<PathBuf>>,
     events_tx: Sender<Event>,
     events_rx: Receiver<Event>,
     next_request_id: i32,
@@ -104,6 +108,7 @@ impl Server {
             snippets,
             watch_files,
             luajit: None,
+            repositories: None,
             events_tx,
             events_rx,
             next_request_id: 0,
@@ -263,18 +268,14 @@ impl Server {
     }
 
     /// Scans the workspace and probes xmake in the background.
-    fn start_jobs(&self) {
+    fn start_jobs(&mut self) {
         let roots = self.roots.clone();
         let tx = self.events_tx.clone();
         spawn("xmake-analyzer-scan", move || {
             let _ = tx.send(Event::Scanned(scan::scan(&roots)));
         });
-        let tx = self.events_tx.clone();
-        spawn("xmake-analyzer-packages", move || {
-            let globaldir = xmake_ide::default_globaldir();
-            let index = xmake_ide::PackageIndex::load(globaldir.as_deref(), &[]);
-            let _ = tx.send(Event::Packages(Arc::new(index)));
-        });
+        self.repositories = None;
+        self.load_packages();
         if self.config.query_xmake {
             let xmake = self.config.xmake_path.clone();
             let tx = self.events_tx.clone();
@@ -319,12 +320,15 @@ impl Server {
         }
         let old_includes: Vec<String> =
             Project::include_values(file).into_iter().map(str::to_owned).collect();
+        let old_repositories = file.outline.repositories.clone();
         let file = self.project.set_file(path.clone(), Arc::from(text));
         let doc = params.text_document;
         self.open.insert(path, OpenDoc { uri: doc.uri, version: doc.version });
         // Following includes reads the disk: only when they were edited.
         if Project::include_values(&file) != old_includes {
             self.update_includes();
+        } else if file.outline.repositories != old_repositories {
+            self.load_packages();
         }
         self.publish_all();
     }
@@ -419,7 +423,11 @@ impl Server {
                     format!("xmake-analyzer: {err}. Using the builtin API lists."),
                 );
             }
-            Event::Packages(index) => {
+            Event::Packages(index, repositories) => {
+                // A load for repositories since changed: another one comes.
+                if self.repositories.as_ref() != Some(&repositories) {
+                    return;
+                }
                 log::info!("found {} packages in the repositories", index.entries().len());
                 self.project.packages = index;
             }
@@ -455,8 +463,26 @@ impl Server {
     /// Follows the `includes()` of the project, and tells the client which
     /// `.lua` files are description files, so that it gives them the `xmake`
     /// language instead of `lua` (no Lua language server on them).
+    /// Indexes the package repositories again when the local ones
+    /// (`add_repositories`) changed.
+    fn load_packages(&mut self) {
+        let repositories = self.project.local_repositories();
+        if self.repositories.as_ref() == Some(&repositories) {
+            return;
+        }
+        self.repositories = Some(repositories.clone());
+        let tx = self.events_tx.clone();
+        spawn("xmake-analyzer-packages", move || {
+            let globaldir = xmake_ide::default_globaldir();
+            let index = xmake_ide::PackageIndex::load(globaldir.as_deref(), &repositories);
+            let _ = tx.send(Event::Packages(Arc::new(index), repositories));
+        });
+    }
+
     fn update_includes(&mut self) {
-        if !self.project.update_includes() {
+        let changed = self.project.update_includes();
+        self.load_packages();
+        if !changed {
             return;
         }
         let mut uris: Vec<String> = self
