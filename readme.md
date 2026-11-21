@@ -210,6 +210,16 @@ npm run debug              # debug build for the launch configuration (F5)
 python tools/gen_builtin.py  # regenerate the bundled API lists from the installed xmake
 ```
 
+To release, from an up-to-date `main` with a clean working tree:
+
+```sh
+npm run release:patch      # or release:minor, release:major
+```
+
+It runs the tests, bumps the version (`package.json`, `Cargo.toml`, the examples of
+this readme and `action.yaml`), commits, tags and pushes `main` and the tag. The tag
+builds the VSIX and the executables and attaches them to the GitHub release.
+
 | Crate            | Role                                                                     |
 | ---------------- | ------------------------------------------------------------------------ |
 | `xmake_syntax`   | lossless, resilient Lua parser, dialect aware (`Dialect`, `Feature`)     |

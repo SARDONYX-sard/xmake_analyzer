@@ -212,6 +212,9 @@
     "build:server": "cargo build --release",
     "release": "npm run compile && npm run build:server && node ./tasks.cjs build",
     "package": "npm run build:server && node ./tasks.cjs build --vsix",
+    "release:patch": "node ./tasks.cjs release patch",
+    "release:minor": "node ./tasks.cjs release minor",
+    "release:major": "node ./tasks.cjs release major",
     "debug": "npm run compile:debug && cargo build && node ./tasks.cjs build --profile debug"
   },
   "devDependencies": {

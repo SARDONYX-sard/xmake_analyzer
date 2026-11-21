@@ -26,6 +26,9 @@ const run = (cmd) => {
   execSync(cmd, { cwd: __dirname, stdio: "inherit" });
 };
 
+/** The trimmed output of `cmd`. */
+const capture = (cmd) => execSync(cmd, { cwd: __dirname, encoding: "utf8" }).trim();
+
 /**
  * Copies the language server next to the compiled extension in build/, and
  * optionally packages a platform specific VSIX.
@@ -61,6 +64,77 @@ function build(args) {
   console.log(`packaged ${out}`);
 }
 
+/** The files that name the version, besides package.json and Cargo.lock. */
+const VERSION_FILES = ["crates/xmake_analyzer/Cargo.toml", "readme.md", "action.yaml"];
+
+/** `version` bumped by `kind`: `patch`, `minor` or `major`. */
+function bump(version, kind) {
+  const [major, minor, patch] = version.split(".").map(Number);
+  switch (kind) {
+    case "major":
+      return `${major + 1}.0.0`;
+    case "minor":
+      return `${major}.${minor + 1}.0`;
+    case "patch":
+      return `${major}.${minor}.${patch + 1}`;
+    default:
+      throw new Error(`expected patch, minor or major, found ${kind}`);
+  }
+}
+
+/**
+ * Bumps the version, commits, tags and pushes: the tag builds the release
+ * (.github/workflows/build.yaml).
+ */
+function release(args) {
+  const [kind] = args;
+  const push = !args.includes("--no-push");
+  const branch = capture("git branch --show-current");
+  if (branch !== "main") throw new Error(`release from main, not ${branch || "a detached HEAD"}`);
+  if (capture("git status --porcelain")) throw new Error("the working tree has changes: commit or stash them");
+  run("git fetch origin main --tags");
+  if (capture("git rev-parse HEAD") !== capture("git rev-parse origin/main")) {
+    throw new Error("main and origin/main differ: pull or push first");
+  }
+
+  const pkg = JSON.parse(fs.readFileSync(path.join(__dirname, "package.json"), "utf8"));
+  const old = pkg.version;
+  const next = bump(old, kind);
+  if (capture(`git tag --list ${next}`)) throw new Error(`the tag ${next} exists`);
+  console.log(`release ${old} -> ${next}`);
+
+  run("cargo test --workspace --quiet");
+  run("npm run check");
+
+  run(`npm version ${next} --no-git-tag-version`);
+  const escaped = old.replace(/\./g, "\\.");
+  const patterns = [
+    // Cargo.toml: `version = "0.1.0"` of the package.
+    [new RegExp(`^(version\\s*=\\s*")${escaped}"`, "m"), `$1${next}"`],
+    // readme.md, action.yaml: `@0.1.0` and `` `0.1.0` ``.
+    [new RegExp(`@${escaped}\\b`, "g"), `@${next}`],
+    [new RegExp(`\`${escaped}\``, "g"), `\`${next}\``],
+  ];
+  for (const file of VERSION_FILES) {
+    const full = path.join(__dirname, file);
+    const text = fs.readFileSync(full, "utf8");
+    const updated = patterns.reduce((t, [re, to]) => t.replace(re, to), text);
+    if (updated === text) throw new Error(`${file} does not name the version ${old}`);
+    fs.writeFileSync(full, updated);
+  }
+  run("cargo update --workspace --offline");
+
+  run(`git add package.json package-lock.json Cargo.lock ${VERSION_FILES.join(" ")}`);
+  run(`git commit -m "chore: release ${next}"`);
+  run(`git tag -a ${next} -m ${next}`);
+  if (push) {
+    run(`git push --atomic origin main ${next}`);
+    console.log(`released ${next}: the Build workflow attaches the assets to the GitHub release`);
+  } else {
+    console.log(`tagged ${next}; push with: git push --atomic origin main ${next}`);
+  }
+}
+
 const TASKS = {
   build: {
     usage: "[--vsix] [--target <rust triple>] [--profile <name>] [--binary <path>]",
@@ -71,6 +145,13 @@ const TASKS = {
   --binary   the server binary to copy, instead of looking in target/
   --vsix     also compile the extension and package build/xmake-analyzer-<platform>.vsix`,
     run: build,
+  },
+  release: {
+    usage: "<patch|minor|major> [--no-push]",
+    help: `Bumps the version (package.json, Cargo.toml, readme.md, action.yaml), runs the
+tests, commits, tags and pushes main and the tag: the tag builds the release.
+  --no-push  commit and tag only`,
+    run: release,
   },
   help: {
     usage: "",
