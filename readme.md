@@ -101,9 +101,9 @@ no build); what to run with it is up to the workflow.
 
 ```yaml
 - uses: actions/checkout@v7
-- uses: SARDONYX-sard/xmake_analyzer@0.1.1 # installs this release, unless `version` says another
+- uses: SARDONYX-sard/xmake_analyzer@0.2.0 # installs this release, unless `version` says another
   with:
-    version: latest # or a tag: `0.1.1`
+    version: latest # or a tag: `0.2.0`
 - run: xmake_analyzer lint -D warnings .
 - run: xmake_analyzer fmt --check xmake.lua src
 ```
