@@ -327,8 +327,7 @@ function claimsPresent(
   const associations =
     vscode.workspace
       .getConfiguration("files", folder.uri)
-      .inspect<Record<string, string>>("associations")?.workspaceFolderValue ??
-    {};
+      .inspect<Record<string, string>>("associations")?.workspaceValue ?? {};
   const ignored =
     vscode.workspace
       .getConfiguration("Lua", folder.uri)
@@ -370,10 +369,12 @@ async function updateAssociations(
   previous: string[],
   wanted: string[],
 ) {
+  // `files.associations` is a window setting: the workspace holds it, not
+  // the folder (writing there fails).
   const config = vscode.workspace.getConfiguration("files", folder.uri);
   const current = {
     ...(config.inspect<Record<string, string>>("associations")
-      ?.workspaceFolderValue ?? {}),
+      ?.workspaceValue ?? {}),
   };
   for (const pattern of previous) {
     if (current[pattern] === LANGUAGE) delete current[pattern];
@@ -383,7 +384,7 @@ async function updateAssociations(
   await config.update(
     "associations",
     value,
-    vscode.ConfigurationTarget.WorkspaceFolder,
+    vscode.ConfigurationTarget.Workspace,
   );
 }
 
