@@ -66,7 +66,10 @@ export async function activate(
         e.affectsConfiguration("files.associations") ||
         e.affectsConfiguration("Lua.workspace.ignoreDir")
       ) {
-        void writeClaims(previouslyIncluded());
+        // Our own writes come here too: the files of the server, not the
+        // stored claims (stale while a write is in flight), else two
+        // writes undo each other forever.
+        void queueClaims(claimedFiles ?? previouslyIncluded());
       }
     }),
   );
@@ -76,7 +79,7 @@ export async function activate(
   const known = previouslyIncluded();
   included = new Set(known.map(key));
   vscode.workspace.textDocuments.forEach(claimIfIncluded);
-  await writeClaims(known);
+  await queueClaims(known);
   registerCompileCommands(context, output);
   registerTasks(context);
   await start(context);
@@ -223,8 +226,22 @@ async function reloadXmake(): Promise<void> {
 async function onIncludedFiles(uris: string[]): Promise<void> {
   const files = uris.map((uri) => vscode.Uri.parse(uri));
   included = new Set(files.map(key));
+  claimedFiles = files;
   vscode.workspace.textDocuments.forEach(claimIfIncluded);
-  await writeClaims(files);
+  await queueClaims(files);
+}
+
+/** The files the server reported last. */
+let claimedFiles: vscode.Uri[] | undefined;
+/** The writes of the claims, one after the other. */
+let claims: Promise<void> = Promise.resolve();
+
+/** Writes the claims after the writes already queued. */
+function queueClaims(files: vscode.Uri[]): Promise<void> {
+  claims = claims.then(() => writeClaims(files)).catch((error: unknown) => {
+    output?.warn(`could not claim the included files: ${String(error)}`);
+  });
+  return claims;
 }
 
 /** An open document: switch its language now. */
