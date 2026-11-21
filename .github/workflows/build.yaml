@@ -31,7 +31,7 @@ jobs:
       matrix:
         job:
           - { target: aarch64-apple-darwin, os: macos-latest, archive: tar.gz, exe: "" }
-          - { target: x86_64-apple-darwin, os: macos-13, archive: tar.gz, exe: "" }
+          - { target: x86_64-apple-darwin, os: macos-15-intel, archive: tar.gz, exe: "" }
           - { target: x86_64-pc-windows-msvc, os: windows-latest, archive: zip, exe: .exe }
           - { target: aarch64-pc-windows-msvc, os: windows-latest, archive: zip, exe: .exe }
           - { target: x86_64-unknown-linux-gnu, os: ubuntu-latest, archive: tar.gz, exe: "" }
