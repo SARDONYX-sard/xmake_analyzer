@@ -384,15 +384,10 @@ pub fn references<'a>(
             .into_iter()
             .map(|range| NavTarget { path: Cow::Borrowed(path), range })
             .collect(),
-        Symbol::Project { kind, name } => {
-            let mut out = Vec::new();
-            for (path, file) in project.scope_of(file).files() {
-                for range in project_name_uses(file, kind, &name) {
-                    out.push(NavTarget { path: Cow::Borrowed(path), range });
-                }
-            }
-            out
-        }
+        Symbol::Project { kind, name } => name_uses(project, file, kind, &name)
+            .into_iter()
+            .map(|(path, range)| NavTarget { path: Cow::Borrowed(path), range })
+            .collect(),
         Symbol::Global { name } => {
             let mut out = Vec::new();
             for (path, file) in project.scope_of(file).files() {
@@ -467,6 +462,38 @@ fn project_name_uses(file: &AnalyzedFile, kind: ProjectName, name: &str) -> Vec<
     out
 }
 
+/// The uses of a project name in the files it is visible from. A package is
+/// both defined (`package("x")`, in the project or in one of its
+/// repositories) and used (`add_requires("x")`, `add_packages("x")`): every
+/// file of the workspace counts, a repository being a project of its own.
+fn name_uses<'a>(
+    project: &'a Project,
+    file: &'a AnalyzedFile,
+    kind: ProjectName,
+    name: &str,
+) -> Vec<(&'a Path, TextRange)> {
+    let is_package = matches!(kind, ProjectName::Package | ProjectName::Defined(Scope::Package));
+    let files: Vec<(&'a Path, &'a std::sync::Arc<AnalyzedFile>)> = if is_package {
+        project.files().collect()
+    } else {
+        project.scope_of(file).files().collect()
+    };
+    let kinds: &[ProjectName] = if is_package {
+        &[ProjectName::Defined(Scope::Package), ProjectName::Package]
+    } else {
+        std::slice::from_ref(&kind)
+    };
+    let mut out = Vec::new();
+    for (path, other) in files {
+        for &kind in kinds {
+            out.extend(project_name_uses(other, kind, name).into_iter().map(|r| (path, r)));
+        }
+    }
+    out.sort_by(|a, b| a.0.cmp(b.0).then(a.1.start().cmp(&b.1.start())));
+    out.dedup();
+    out
+}
+
 /// The definitions of `file` (targets, options, ...) with their uses in the
 /// project, for reference counts.
 pub fn code_lenses<'a>(
@@ -475,18 +502,13 @@ pub fn code_lenses<'a>(
     path: &'a Path,
 ) -> Vec<(TextRange, Vec<NavTarget<'a>>)> {
     let mut out = Vec::with_capacity(file.outline.definitions.len());
-    let scope = project.scope_of(file);
     for def in &file.outline.definitions {
         let name = &file.text[def.name_range];
-        let mut uses = Vec::new();
-        for (other_path, other) in scope.files() {
-            for range in project_name_uses(other, ProjectName::Defined(def.scope), name) {
-                let is_itself = other_path == path && range == def.name_range;
-                if !is_itself {
-                    uses.push(NavTarget { path: Cow::Borrowed(other_path), range });
-                }
-            }
-        }
+        let uses = name_uses(project, file, ProjectName::Defined(def.scope), name)
+            .into_iter()
+            .filter(|&(other, range)| !(other == path && range == def.name_range))
+            .map(|(other, range)| NavTarget { path: Cow::Borrowed(other), range })
+            .collect();
         out.push((def.name_range, uses));
     }
     // The functions of a module: their uses here and where it is imported.
@@ -724,6 +746,27 @@ task_end()
             refs.iter().map(|r| r.path.display().to_string()).collect::<Vec<_>>()
         );
         let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn package_uses() {
+        // A package of a local repository: its own project, used by the root.
+        let mut p = project(&[]);
+        let root = "add_requires('zlib 1.3', 'fmt')
+target('a')
+  add_packages('zlib')
+";
+        let recipe = "package('zlib')
+  set_homepage('x')
+";
+        let root_path = PathBuf::from("/p/xmake.lua");
+        let recipe_path = PathBuf::from("/p/repo/packages/z/zlib/xmake.lua");
+        p.set_file(root_path.clone(), Arc::from(root));
+        let file = p.set_file(recipe_path.clone(), Arc::from(recipe));
+        let lenses = code_lenses(&p, &file, &recipe_path);
+        let uses: Vec<_> =
+            lenses[0].1.iter().map(|t| (t.path.to_path_buf(), &root[t.range])).collect();
+        assert_eq!(uses, [(root_path.clone(), "zlib"), (root_path, "zlib")]);
     }
 
     #[test]
