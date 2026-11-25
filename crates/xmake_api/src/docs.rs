@@ -1,33 +1,55 @@
 //! Documentation of the APIs, in the style of rustdoc: a summary, then
 //! `# Examples` and `# Notes`.
 //!
-//! The hand written pages live in `docs/` (see `build.rs`); every other API
-//! gets a page generated from its kind, so that each hover has examples.
+//! The pages, prototypes and links live in the stubs (see `stubs.rs`); every
+//! other API gets a page generated from its kind, so that each hover has
+//! examples.
 
 use std::fmt::Write as _;
 
-use crate::{ApiKind, Instance, Scope};
+use crate::{ApiKind, Function, Instance, Scope, Stubs};
+
+/// The owners of `name` to look in, best first: the class of `scope`, the
+/// root, the globals, then every scope.
+fn owners(scope: Option<Scope>) -> Vec<String> {
+    let class = |s: Scope| crate::render::scope_class(s);
+    let mut out: Vec<String> = Vec::new();
+    match scope {
+        Some(scope) => {
+            out.extend(scope.visible_scopes().iter().map(|&s| class(s)));
+            out.push(crate::GLOBALS.to_owned());
+        }
+        None => {
+            out.push(crate::GLOBALS.to_owned());
+            out.push(class(Scope::Root));
+            out.push(class(Scope::Target));
+        }
+    }
+    out.extend(std::iter::once(Scope::Root).chain(Scope::NAMED).map(class));
+    out
+}
+
+/// The first stub of `name` among [`owners`] for which `has` holds.
+fn lookup(
+    scope: Option<Scope>,
+    name: &str,
+    has: impl Fn(&Function) -> bool,
+) -> Option<&'static Function> {
+    let stubs = Stubs::get();
+    owners(scope).iter().find_map(|owner| stubs.find(owner, name).filter(|f| has(f)))
+}
 
 /// The page of a description API or a script function, in `scope` when
 /// given: `xmake.option` overrides `xmake.api` in an option.
 pub fn api_doc(scope: Option<Scope>, name: &str) -> Option<&'static str> {
-    let stubs = crate::Stubs::get();
-    let scoped = scope.and_then(|scope| {
-        let owner = match scope {
-            Scope::Root => "xmake.root",
-            Scope::Target => "xmake.target",
-            Scope::Option => "xmake.option",
-            Scope::Rule => "xmake.rule",
-            Scope::Package => "xmake.package",
-            Scope::Toolchain => "xmake.toolchain",
-            Scope::Task => "xmake.task",
-        };
-        stubs.member(owner, name)
-    });
+    let stubs = Stubs::get();
+    let documented = |f: &&Function| !f.doc.is_empty();
+    let scoped = scope
+        .and_then(|scope| stubs.find(&crate::render::scope_class(scope), name).filter(documented));
     let function = scoped
-        .or_else(|| stubs.member("xmake.api", name))
-        .or_else(|| stubs.member(crate::stubs::GLOBALS, name))?;
-    (!function.doc.is_empty()).then_some(function.doc.as_str())
+        .or_else(|| stubs.find("xmake.api", name).filter(documented))
+        .or_else(|| stubs.find(crate::stubs::GLOBALS, name).filter(documented))?;
+    Some(function.doc.as_str())
 }
 
 /// The page of `module.function`, from the stubs.
@@ -41,79 +63,22 @@ pub fn instance_doc(instance: Instance, method: &str) -> Option<&'static str> {
     module_doc(instance.name(), method)
 }
 
-/// The page of the manual documenting the APIs of `scope`.
-fn scope_page(scope: Scope) -> &'static str {
-    match scope {
-        Scope::Root => "api/description/global-interfaces",
-        Scope::Target => "api/description/project-target",
-        Scope::Option => "api/description/configuration-option",
-        Scope::Rule => "api/description/custom-rule",
-        Scope::Package => "api/description/package-dependencies",
-        Scope::Toolchain => "api/description/custom-toolchain",
-        Scope::Task => "api/description/plugin-and-task",
-    }
-}
-
-fn url(page: &str, anchor: &str) -> String {
-    if anchor.is_empty() {
-        format!("https://xmake.io/{page}.html")
-    } else {
-        format!("https://xmake.io/{page}.html#{anchor}")
-    }
-}
-
-/// The section of the manual documenting `name`: the page of `scope` when it
-/// has one (`set_kind` of a target and of a package differ), else the page of
-/// the conditions, the global interfaces, ... (`set_license` is documented
-/// with the xpack interfaces).
+/// The section of the manual documenting `name` (`@see` of its stub): the
+/// one of `scope` when it has one (`set_kind` of a target and of a package
+/// differ).
 pub fn doc_link(scope: Option<Scope>, name: &str) -> Option<String> {
-    use crate::doc_links::DOC_LINKS;
-    let entry = pick(DOC_LINKS, scope, name, |e| e.0, |e| e.1)?;
-    Some(url(entry.1, entry.2))
+    lookup(scope, name, |f| f.see.is_some()).and_then(|f| f.see).map(str::to_owned)
 }
 
-/// The entry of `name` in a table sorted by name, on the page of `scope`
-/// when there is one, else on the global pages, else the first.
-fn pick<T>(
-    table: &'static [T],
-    scope: Option<Scope>,
-    name: &str,
-    name_of: impl Fn(&T) -> &str,
-    page_of: impl Fn(&T) -> &str,
-) -> Option<&'static T> {
-    let start = table.partition_point(|e| name_of(e) < name);
-    let entries =
-        &table[start..table[start..].iter().take_while(|e| name_of(e) == name).count() + start];
-    let preferred = [
-        scope.map(scope_page),
-        Some("api/description/global-interfaces"),
-        Some("api/description/conditions"),
-        Some("api/description/helper-interfaces"),
-        Some("api/description/project-target"),
-    ];
-    preferred
-        .iter()
-        .flatten()
-        .find_map(|page| entries.iter().find(|e| page_of(e) == *page))
-        .or_else(|| entries.first())
-}
-
-/// The prototype of `name` in the manual, `set_default(default: boolean)`,
-/// with its documented parameters `(name, description)`.
+/// The prototype of `name` in the manual (`@xmake.prototype` of its stub),
+/// `set_default(default: boolean)`, with its documented parameters
+/// `(name, description)` (`@xmake.param`).
 pub fn doc_prototype(
     scope: Option<Scope>,
     name: &str,
 ) -> Option<(&'static str, Vec<(&'static str, &'static str)>)> {
-    use crate::doc_links::{DOC_PARAMS, DOC_PROTOTYPES};
-    let entry = pick(DOC_PROTOTYPES, scope, name, |e| e.0, |e| e.1)?;
-    let page = entry.1;
-    let start = DOC_PARAMS.partition_point(|e| (e.0, e.1) < (name, page));
-    let params = DOC_PARAMS[start..]
-        .iter()
-        .take_while(|e| e.0 == name && e.1 == page)
-        .map(|e| (e.2, e.3))
-        .collect();
-    Some((entry.2, params))
+    let function = lookup(scope, name, |f| f.prototype.is_some())?;
+    Some((function.prototype?, function.prototype_params.clone()))
 }
 
 /// The parameters of a prototype: `["files: string|array", "...", "{defines, ...}"]`.
@@ -144,12 +109,11 @@ pub fn prototype_params(prototype: &str) -> Vec<&str> {
 
 /// The section documenting `owner.name` or `owner:name`: `os.cp`,
 /// `target:targetfile`, `json.decode` of `core.base.json`, ...
-pub fn member_link(owner: &str, separator: char, name: &str) -> Option<String> {
-    let short = owner.rsplit('.').next().unwrap_or(owner);
-    let key = format!("{short}{separator}{name}");
-    doc_link(None, &key)
-        // A module documented on one page: `core.base.semver`.
-        .or_else(|| doc_link(None, owner))
+pub fn member_link(owner: &str, _separator: char, name: &str) -> Option<String> {
+    let stubs = Stubs::get();
+    let see = stubs.find(owner, name).and_then(|f| f.see);
+    // A module documented on one page: `core.base.semver`.
+    see.or_else(|| stubs.class(owner).and_then(|c| c.see)).map(str::to_owned)
 }
 
 /// The first paragraph of a page, for short displays.

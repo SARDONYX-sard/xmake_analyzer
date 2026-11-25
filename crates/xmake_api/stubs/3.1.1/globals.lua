@@ -10,6 +10,8 @@
 --- ```
 ---@param format string With `${color}` markers.
 ---@param ... any
+---@see https://xmake.io/api/scripts/builtin-modules/cprint.html
+---@xmake.context script
 function cprint(format, ...) end
 
 --- Imports an extension module and returns it. In a function body, the module
@@ -37,6 +39,8 @@ function cprint(format, ...) end
 ---@param name string The module: `core.base.json`, `lib.detect.find_tool`, or a path next to the script.
 ---@param opt? {alias?: string, rootdir?: string, try?: boolean, anonymous?: boolean}
 ---@return any module
+---@see https://xmake.io/api/scripts/builtin-modules/import.html
+---@xmake.context script
 function import(name, opt) end
 
 --- Prints its arguments; with a format string first, formats like `string.format`.
@@ -49,6 +53,8 @@ function import(name, opt) end
 --- print({a = 1}) -- tables are dumped
 --- ```
 ---@param ... any Values, or a format and its arguments.
+---@see https://xmake.io/api/scripts/builtin-modules/print.html
+---@xmake.context description script
 function print(...) end
 
 --- Stops the script with an error message, formatted like `string.format`.
@@ -68,6 +74,8 @@ function print(...) end
 --- Catch errors with `try { function () ... end, catch { function (errors) ... end } }`.
 ---@param format string A `string.format` format, or the error value.
 ---@param ... any
+---@see https://xmake.io/api/scripts/builtin-modules/raise.html
+---@xmake.context script
 function raise(format, ...) end
 
 --- Runs a function and catches its errors, with optional `catch` and `finally` blocks.
@@ -94,6 +102,7 @@ function raise(format, ...) end
 --- ```
 ---@param block {[1]: function, catch?: table, finally?: table}
 ---@return any
+---@xmake.context script
 function try(block) end
 
 --- Prints only in verbose mode (`xmake -v`).
@@ -104,6 +113,7 @@ function try(block) end
 --- vprint("compiling %s", sourcefile)
 --- ```
 ---@param ... any
+---@xmake.context script
 function vprint(...) end
 
 --- Iterates over the array part of a table: `1, t[1]`, `2, t[2]`, ... up to
@@ -123,6 +133,8 @@ function vprint(...) end
 ---@generic V
 ---@param t V[]
 ---@return fun(): integer, V
+---@see https://xmake.io/api/scripts/builtin-modules/ipairs.html
+---@xmake.context description script
 function ipairs(t) end
 
 --- Iterates over every key and value of a table, in no particular order.
@@ -140,6 +152,8 @@ function ipairs(t) end
 --- Sort the keys first when the order matters: `table.keys` then `table.sort`.
 ---@param t table
 ---@return fun(): any, any
+---@see https://xmake.io/api/scripts/builtin-modules/pairs.html
+---@xmake.context description script
 function pairs(t) end
 
 --- Returns the next key and value of a table after `key`; `nil` at the end.
@@ -167,6 +181,7 @@ function next(t, key) end
 --- ```
 ---@param value any
 ---@return string
+---@xmake.context description script
 function type(value) end
 
 --- Converts a value to a string.
@@ -178,6 +193,7 @@ function type(value) end
 --- ```
 ---@param value any
 ---@return string
+---@xmake.context description script
 function tostring(value) end
 
 --- Converts a string to a number, `nil` when it is not one.
@@ -191,6 +207,7 @@ function tostring(value) end
 ---@param value any
 ---@param base? integer
 ---@return number?
+---@xmake.context description script
 function tonumber(value, base) end
 
 --- Raises an error when `value` is false or `nil`; returns its arguments
@@ -204,6 +221,7 @@ function tonumber(value, base) end
 ---@param value any
 ---@param message? string
 ---@return any
+---@xmake.context script
 function assert(value, message) end
 
 --- Raises an error.
@@ -268,6 +286,7 @@ function select(n, ...) end
 ---@param i? integer
 ---@param j? integer
 ---@return any ...
+---@xmake.context description script
 function unpack(list, i, j) end
 
 --- Formats values like `string.format` (xmake).
@@ -280,4 +299,154 @@ function unpack(list, i, j) end
 ---@param format string
 ---@param ... any
 ---@return string
+---@see https://xmake.io/api/scripts/builtin-modules/format.html
+---@xmake.context description script
 function format(format, ...) end
+
+---@xmake.context description
+function add_subdirs(...) end
+
+---@xmake.context description
+function add_subfiles(...) end
+
+---@xmake.context script
+function catch(...) end
+
+---@see https://xmake.io/api/scripts/builtin-modules/cprintf.html
+---@xmake.context script
+function cprintf(...) end
+
+---@xmake.context script
+function dprint(...) end
+
+---@xmake.context script
+function dprintf(...) end
+
+---@xmake.context script
+function finally(...) end
+
+---@xmake.context script
+function find_package(...) end
+
+---@xmake.context script
+function find_packages(...) end
+
+---@xmake.prototype get_config(name: string)
+---@xmake.param name Configuration option name string
+---@see https://xmake.io/api/description/global-interfaces.html#get-config
+---@xmake.context script
+function get_config(...) end
+
+---@xmake.context description
+function getenv(...) end
+
+---@xmake.prototype has_config(configs: string, ...)
+---@xmake.param configs Configuration name string
+---@xmake.param ... Variable parameters, can pass multiple configuration names
+---@see https://xmake.io/api/description/conditions.html#has-config
+---@xmake.context script
+function has_config(...) end
+
+---@xmake.prototype has_package(packages: string, ...)
+---@xmake.param packages Package name string
+---@xmake.param ... Variable parameters, can pass multiple package names
+---@see https://xmake.io/api/description/conditions.html#has-package
+---@xmake.context script
+function has_package(...) end
+
+---@xmake.prototype includes(paths: string|array, ..., {rootdir})
+---@xmake.param paths Sub-project file or directory path, supports pattern matching like "**/xmake.lua"
+---@xmake.param ... Variable parameters, can pass multiple paths
+---@xmake.param rootdir Root directory for relative path resolution, optional
+---@see https://xmake.io/api/description/global-interfaces.html#includes
+---@xmake.context description
+function includes(...) end
+
+---@see https://xmake.io/api/scripts/builtin-modules/inherit.html
+---@xmake.context script
+function inherit(...) end
+
+---@xmake.context script
+function irpairs(...) end
+
+---@xmake.prototype is_arch(arch: string, ...)
+---@xmake.param arch Architecture name string
+---@xmake.param ... Variable parameters, can pass multiple architecture names
+---@see https://xmake.io/api/description/conditions.html#is-arch
+---@xmake.context script
+function is_arch(...) end
+
+---@xmake.prototype is_config(name: string, values: string, ...)
+---@xmake.param name Configuration option name string
+---@xmake.param values Configuration value string
+---@xmake.param ... Variable parameters, can pass multiple values
+---@see https://xmake.io/api/description/conditions.html#is-config
+---@xmake.context script
+function is_config(...) end
+
+---@xmake.prototype is_host(host: string, ...)
+---@xmake.param host Host system name string
+---@xmake.param ... Variable parameters, can pass multiple host names
+---@see https://xmake.io/api/description/conditions.html#is-host
+---@xmake.context script
+function is_host(...) end
+
+---@xmake.prototype is_mode(mode: string, ...)
+---@xmake.param mode Compilation mode name string
+---@xmake.param ... Variable parameters, can pass multiple mode names
+---@see https://xmake.io/api/description/conditions.html#is-mode
+---@xmake.context script
+function is_mode(...) end
+
+---@xmake.prototype is_plat(plat: string, ...)
+---@xmake.param plat Platform name string
+---@xmake.param ... Variable parameters, can pass multiple platform names
+---@see https://xmake.io/api/description/conditions.html#is-plat
+---@xmake.context script
+function is_plat(...) end
+
+---@xmake.prototype is_subhost(subhost: string, ...)
+---@xmake.param subhost Subsystem name string
+---@xmake.param ... Variable parameters, can pass multiple subsystem names
+---@see https://xmake.io/api/description/conditions.html#is-subhost
+---@xmake.context description script
+function is_subhost(...) end
+
+---@xmake.prototype namespace(name: string, script: function)
+---@xmake.param name Namespace name string
+---@xmake.param script Namespace script function
+---@see https://xmake.io/api/description/global-interfaces.html#namespace
+---@xmake.context description
+function namespace(...) end
+
+---@xmake.prototype namespace_end()
+---@xmake.param (none) No parameters required
+---@see https://xmake.io/api/description/global-interfaces.html#namespace-end
+---@xmake.context description
+function namespace_end(...) end
+
+---@see https://xmake.io/api/scripts/builtin-modules/printf.html
+---@xmake.context description script
+function printf(...) end
+
+---@xmake.prototype set_xmakever(version: string)
+---@xmake.param version Minimum required xmake version string, e.g. "2.1.0"
+---@see https://xmake.io/api/description/global-interfaces.html#set-xmakever
+---@xmake.context description
+function set_xmakever(...) end
+
+---@xmake.context script
+function todisplay(...) end
+
+---@xmake.context script
+function val(...) end
+
+---@see https://xmake.io/api/scripts/builtin-modules/vformat.html
+---@xmake.context script
+function vformat(...) end
+
+---@xmake.context script
+function vprintf(...) end
+
+---@xmake.context script
+function wprint(...) end

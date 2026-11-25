@@ -1,0 +1,416 @@
+---@meta
+
+--- The values xmake knows, from `xmake show -l ...`: generated, do not edit.
+---@xmake.version 3.1.1
+
+---@alias xmake.platform
+---| "android"
+---| "appletvos"
+---| "applexros"
+---| "bsd"
+---| "cross"
+---| "cygwin"
+---| "haiku"
+---| "harmony"
+---| "iphoneos"
+---| "linux"
+---| "macosx"
+---| "mingw"
+---| "msys"
+---| "solaris"
+---| "wasm"
+---| "watchos"
+---| "windows"
+
+---@alias xmake.arch
+---| "arm"
+---| "arm64"
+---| "arm64-v8a"
+---| "arm64ec"
+---| "armeabi"
+---| "armeabi-v7a"
+---| "armv7"
+---| "armv7k"
+---| "armv7s"
+---| "i386"
+---| "loong64"
+---| "mip64"
+---| "mips"
+---| "mips64"
+---| "mips64el"
+---| "mipsel"
+---| "ppc"
+---| "ppc64"
+---| "ppc64el"
+---| "riscv"
+---| "riscv64"
+---| "s390x"
+---| "sh4"
+---| "sparc64"
+---| "wasm32"
+---| "wasm64"
+---| "x64"
+---| "x86"
+---| "x86_64"
+
+---@alias xmake.mode
+---| "asan"
+---| "check"
+---| "coverage"
+---| "debug"
+---| "lsan"
+---| "minsizerel"
+---| "msan"
+---| "profile"
+---| "release"
+---| "releasedbg"
+---| "tsan"
+---| "ubsan"
+---| "valgrind"
+
+---@alias xmake.rule
+---| "android.native_app"
+---| "ascendc"
+---| "ascendc.build.aicpu"
+---| "ascendc.build.asc"
+---| "asm"
+---| "asm.build"
+---| "asn1c"
+---| "c"
+---| "c++"
+---| "c++.build"
+---| "c++.build.modules"
+---| "c++.build.modules.builder"
+---| "c++.build.modules.install"
+---| "c++.build.modules.scanner"
+---| "c++.build.pcheader"
+---| "c++.openmp"
+---| "c++.unity_build"
+---| "c.build"
+---| "c.build.pcheader"
+---| "c.openmp"
+---| "c.unity_build"
+---| "c51.binary"
+---| "capnproto.cpp"
+---| "cppfront"
+---| "cppfront.build.cpp2"
+---| "cppfront.build.h2"
+---| "csharp"
+---| "csharp.build"
+---| "cuda"
+---| "cuda.build"
+---| "cuda.build.devlink"
+---| "cuda.env"
+---| "cuda.gencodes"
+---| "dlang"
+---| "dlang.build"
+---| "dlang.build.optimization"
+---| "fortran"
+---| "fortran.build"
+---| "fortran.build.modules"
+---| "gnu-rm.binary"
+---| "gnu-rm.object"
+---| "gnu-rm.shared"
+---| "gnu-rm.static"
+---| "go"
+---| "go.build"
+---| "iverilog.binary"
+---| "kotlin-native"
+---| "kotlin-native.build"
+---| "lex"
+---| "linker"
+---| "linker.link_scripts"
+---| "linker.soname"
+---| "linker.version_scripts"
+---| "lua.module"
+---| "lua.native-objects"
+---| "luarocks.module"
+---| "mdk.binary"
+---| "mdk.console"
+---| "mdk.static"
+---| "mode.asan"
+---| "mode.check"
+---| "mode.coverage"
+---| "mode.debug"
+---| "mode.lsan"
+---| "mode.minsizerel"
+---| "mode.msan"
+---| "mode.profile"
+---| "mode.release"
+---| "mode.releasedbg"
+---| "mode.tsan"
+---| "mode.ubsan"
+---| "mode.valgrind"
+---| "module.binary"
+---| "module.shared"
+---| "nim"
+---| "nim.build"
+---| "nodejs.module"
+---| "objc++"
+---| "objc++.build"
+---| "objc++.build.pcheader"
+---| "objc.build"
+---| "objc.build.pcheader"
+---| "pascal"
+---| "pascal.build"
+---| "platform.linux.bpf"
+---| "platform.linux.driver"
+---| "platform.linux.module"
+---| "platform.wasm"
+---| "platform.wasm.installfiles"
+---| "platform.wasm.preloadfiles"
+---| "platform.windows"
+---| "platform.windows.def"
+---| "platform.windows.idl"
+---| "platform.windows.manifest"
+---| "platform.windows.subsystem"
+---| "plugin.compile_commands.autoupdate"
+---| "plugin.vsxmake.autoupdate"
+---| "protobuf.c"
+---| "protobuf.cpp"
+---| "python.cython"
+---| "python.library"
+---| "python.module"
+---| "qt._wasm_app"
+---| "qt.application"
+---| "qt.console"
+---| "qt.env"
+---| "qt.moc"
+---| "qt.qmlplugin"
+---| "qt.qmltyperegistrar"
+---| "qt.qrc"
+---| "qt.quickapp"
+---| "qt.quickapp_static"
+---| "qt.shared"
+---| "qt.static"
+---| "qt.ts"
+---| "qt.ui"
+---| "qt.widgetapp"
+---| "qt.widgetapp_static"
+---| "rust"
+---| "rust.build"
+---| "rust.cxxbridge"
+---| "swift"
+---| "swift.build"
+---| "swift.interop"
+---| "swig.base"
+---| "swig.c"
+---| "swig.cpp"
+---| "utils.bin2c"
+---| "utils.bin2obj"
+---| "utils.compiler.runtime"
+---| "utils.glsl2spv"
+---| "utils.hlsl2spv"
+---| "utils.inherit.links"
+---| "utils.install.cmake_importfiles"
+---| "utils.install.pkgconfig_importfiles"
+---| "utils.ispc"
+---| "utils.merge.archive"
+---| "utils.merge.object"
+---| "utils.replace"
+---| "utils.symbols.export_all"
+---| "utils.symbols.export_list"
+---| "utils.symbols.extract"
+---| "vala"
+---| "vala.build"
+---| "verilator.binary"
+---| "verilator.shared"
+---| "verilator.static"
+---| "wdk.binary"
+---| "wdk.driver"
+---| "wdk.env"
+---| "wdk.env.kmdf"
+---| "wdk.env.umdf"
+---| "wdk.env.wdm"
+---| "wdk.inf"
+---| "wdk.man"
+---| "wdk.mc"
+---| "wdk.mof"
+---| "wdk.package.cab"
+---| "wdk.shared"
+---| "wdk.sign"
+---| "wdk.static"
+---| "wdk.tracewpp"
+---| "win.sdk.application"
+---| "win.sdk.dotnet"
+---| "win.sdk.mfc.env"
+---| "win.sdk.mfc.shared"
+---| "win.sdk.mfc.shared_app"
+---| "win.sdk.mfc.static"
+---| "win.sdk.mfc.static_app"
+---| "win.sdk.resource"
+---| "xcode.application"
+---| "xcode.bundle"
+---| "xcode.framework"
+---| "xcode.info_plist"
+---| "xcode.metal"
+---| "xcode.storyboard"
+---| "xcode.xcassets"
+---| "xmake.cli"
+---| "yacc"
+---| "zig"
+---| "zig.build"
+
+---@alias xmake.policy
+---| "build.across_targets_in_parallel" # Enable compile the source files for each target in parallel.
+---| "build.always_update_configfiles" # Always update configfiles when building.
+---| "build.c++.clang.fallbackscanner" # Force clang fallback module dependency scanner. (deprecated)
+---| "build.c++.dynamic_debugging" # Enable C++ Dynamic Debugging for MSVC (requires MSVC toolset 14.44+, x64 only, incompatible with LTCG/PGO/OPT-ICF).
+---| "build.c++.gcc.fallbackscanner" # Force gcc fallback module dependency scanner. (deprecated)
+---| "build.c++.gcc.modules.cxx11abi" # Force to enable new cxx11 abi in C++ modules for gcc. (deprecated)
+---| "build.c++.modules" # Enable C++ modules for C++ building.
+---| "build.c++.modules.clang.fallbackscanner" # Force clang fallback module dependency scanner.
+---| "build.c++.modules.culling" # Enable unrefereced and non-public named module culling.
+---| "build.c++.modules.fallbackscanner" # Force fallback module dependency scanner.
+---| "build.c++.modules.gcc.cxx11abi" # Force to enable new cxx11 abi in C++ modules for gcc.
+---| "build.c++.modules.gcc.fallbackscanner" # Force gcc fallback module dependency scanner.
+---| "build.c++.modules.hide_dependencies" # Hide dependencies from the commandline when build C++ modules.
+---| "build.c++.modules.msvc.fallbackscanner" # Force msvc fallback module dependency scanner.
+---| "build.c++.modules.non_cascading_changes" # Enable non cascading changes when supported (experimental).
+---| "build.c++.modules.reuse" # Reuse compiled module artifacts if possible.
+---| "build.c++.modules.reuse.nocheck" # Disable flag compatibility check when reusing modules.
+---| "build.c++.modules.reuse.strict" # Enable strict defines comparison when trying to reuse module.
+---| "build.c++.modules.std" # Enable std modules.
+---| "build.c++.modules.tryreuse" # Try to reuse compiled module if possible. (deprecated)
+---| "build.c++.modules.tryreuse.discriminate_on_defines" # Enable defines module reuse discrimination.
+---| "build.c++.modules.two_phases" # Enable two phase compilation if supported.
+---| "build.c++.msvc.fallbackscanner" # Force msvc fallback module dependency scanner. (deprecated)
+---| "build.c++.msvc.runtime" # Set the default vs runtime.
+---| "build.ccache" # Enable C/C++ build cache.
+---| "build.ccache.global_storage" # Use global storge if build.ccache is enabled.
+---| "build.cuda.devlink" # Enable Cuda devlink.
+---| "build.distcc.remote_only" # Enable build on only remote machines.
+---| "build.fence" # Block all targets build that depends on self.
+---| "build.intermediate_directory" # Generate intermediate build directory.
+---| "build.jobgraph" # Enable build jobgraph.
+---| "build.linker.output" # Enable linker output.
+---| "build.merge_archive" # Enable merge archive intead of linking for all dependent targets.
+---| "build.optimization.lto" # Enable LTO linker-time optimization for c/c++ building.
+---| "build.progress_show_target" # Show target name in build progress output.
+---| "build.progress_style" # Set the build progress output style.
+---| "build.release.strip" # Strip symbols by default in release mode.
+---| "build.rpath" # Enable build rpath.
+---| "build.sanitizer.address" # Enable address sanitizer for c/c++ building.
+---| "build.sanitizer.leak" # Enable leak sanitizer for c/c++ building.
+---| "build.sanitizer.memory" # Enable memory sanitizer for c/c++ building.
+---| "build.sanitizer.thread" # Enable thread sanitizer for c/c++ building.
+---| "build.sanitizer.undefined" # Enable undefined sanitizer for c/c++ building.
+---| "build.warning" # Enable build warning output.
+---| "check.auto_ignore_flags" # Enable check and ignore unsupported flags automatically.
+---| "check.auto_map_flags" # Enable map gcc flags to the current compiler and linker automatically.
+---| "check.target_package_licenses" # Enable check the compatibility of target and package licenses.
+---| "compatibility.version" # Set the compatibility version
+---| "diagnosis.check_build_deps" # Show diagnosis info for checking build dependencies
+---| "generator.compile_commands" # Enable compile_commands.
+---| "generator.vsxmake.root_sln" # Generate the solution file in root output directory
+---| "install.rpath" # Enable install rpath.
+---| "install.strip_packagelibs" # Strip package libraries for installation.
+---| "network.mode" # Set the network mode
+---| "package.build.ccache" # Enable C/C++ package build cache.
+---| "package.cmake_generator.ninja" # Set cmake package use ninja for build
+---| "package.download.http_headers" # Set the custom http headers when downloading package.
+---| "package.fetch_only" # Only fetch packages on system.
+---| "package.host.install_locally" # Install the host packages in the local project folder.
+---| "package.include_external_headers" # Use includes as external headers.
+---| "package.inherit_external_configs" # Inherit the configs from the external command arguments.
+---| "package.install_always" # Always install packages every time.
+---| "package.install_locally" # Install packages in the local project folder.
+---| "package.install_only" # Only install packages from remote.
+---| "package.keep_source" # Keep package source code after installing.
+---| "package.librarydeps.strict_compatibility" # Set strict compatibility for package and it's all library dependencies.
+---| "package.merge_staticlibs" # Merge all static libraries after installing package
+---| "package.msbuild.multi_tool_task" # Enable msbuild MultiToolTask.
+---| "package.precompiled" # Enable precompiled packages.
+---| "package.requires_lock" # Enable xmake-requires.lock to lock required packages.
+---| "package.resolve_depconflict" # Automatically resolve package dependencies conflict.
+---| "package.strict_compatibility" # Set strict compatibility for package and it's all child packages.
+---| "package.sync_requires_to_deps" # Synchronize requires configuration to all package dependencies.
+---| "package.xmake.pass_depconfs" # Automatically passes dependency configuration for inner xmake package
+---| "platform.longpaths" # Enable long paths when building target or installing package on windows.
+---| "preprocessor.gcc.directives_only" # Enable -fdirectives-only for gcc preprocessor.
+---| "preprocessor.linemarkers" # Enable linemarkers for preprocessor.
+---| "run.autobuild" # Automatically build before running.
+---| "run.windows_error_dialog" # Enable Windows Error Reporting Dialogs during execution.
+---| "test.return_zero_on_failure" # Return zero as the exit code on failure
+---| "test.stop_on_first_failure" # Stop to test on the first failure
+---| "windows.manifest.uac" # Enable windows manifest UAC.
+---| "windows.manifest.uac.ui" # Enable ui access for windows UAC.
+
+---@alias xmake.toolchain
+---| "armcc" # ARM Compiler Version 5 of Keil MDK
+---| "armclang" # ARM Compiler Version 6 of Keil MDK
+---| "ascendc" # Huawei Ascend C (bisheng compiler driver)
+---| "c51" # Keil development tools for the 8051 Microcontroller Architecture
+---| "circle" # A new C++20 compiler. It's written from scratch and designed for easy extension.
+---| "clang" # A C language family frontend for LLVM
+---| "clang-12" # A C language family frontend for LLVM (12)
+---| "clang-13" # A C language family frontend for LLVM (13)
+---| "clang-14" # A C language family frontend for LLVM (14)
+---| "clang-15" # A C language family frontend for LLVM (15)
+---| "clang-16" # A C language family frontend for LLVM (16)
+---| "clang-17" # A C language family frontend for LLVM (17)
+---| "clang-18" # A C language family frontend for LLVM (18)
+---| "clang-19" # A C language family frontend for LLVM (19)
+---| "clang-20" # A C language family frontend for LLVM (20)
+---| "clang-21" # A C language family frontend for LLVM (21)
+---| "clang-22" # A C language family frontend for LLVM (22)
+---| "clang-23" # A C language family frontend for LLVM (23)
+---| "clang-cl" # LLVM Clang C/C++ Compiler compatible with msvc
+---| "cosmocc" # build-once run-anywhere c library
+---| "cross" # Common cross compilation toolchain
+---| "cuda" # CUDA Toolkit (nvcc, nvc, nvc++, nvfortran)
+---| "dlang" # D Programming Language Compiler (Auto)
+---| "dmd" # D Programming Language Compiler
+---| "dotnet" # .NET SDK Toolchain
+---| "dpcpp" # Intel LLVM C++ Compiler for data parallel programming model based on Khronos SYCL
+---| "emcc" # A toolchain for compiling to asm.js and WebAssembly
+---| "envs" # Environment variables toolchain
+---| "fasm" # Flat Assembler
+---| "filc" # A memory safe implementation of the C and C++ programming languages.
+---| "flang" # LLVM Fortran Compiler
+---| "fpc" # Free Pascal Programming Language Compiler
+---| "gcc" # GNU Compiler Collection
+---| "gcc-10" # GNU Compiler Collection (10)
+---| "gcc-11" # GNU Compiler Collection (11)
+---| "gcc-12" # GNU Compiler Collection (12)
+---| "gcc-13" # GNU Compiler Collection (13)
+---| "gcc-14" # GNU Compiler Collection (14)
+---| "gcc-15" # GNU Compiler Collection (15)
+---| "gcc-16" # GNU Compiler Collection (16)
+---| "gcc-4.8" # GNU Compiler Collection (4.8)
+---| "gcc-4.9" # GNU Compiler Collection (4.9)
+---| "gcc-8" # GNU Compiler Collection (8)
+---| "gcc-9" # GNU Compiler Collection (9)
+---| "gdc" # The GNU D Compiler (GDC).
+---| "gfortran" # GNU Fortran Programming Language Compiler
+---| "gnu-rm" # GNU Arm Embedded Toolchain
+---| "go" # Go Programming Language Compiler
+---| "hdk" # Harmony SDK
+---| "iararm" # IAR ARM C/C++ Compiler
+---| "icc" # Intel C/C++ Compiler
+---| "icx" # Intel LLVM C/C++ Compiler
+---| "ifort" # Intel Fortran Compiler
+---| "ifx" # Intel LLVM Fortran Compiler
+---| "iverilog" # Icarus Verilog
+---| "kotlin-native" # The Kotlin Programming Language Compiler.
+---| "ldc" # The LLVM-based D Compiler.
+---| "llvm" # A collection of modular and reusable compiler and toolchain technologies
+---| "masm32" # The MASM32 SDK
+---| "mingw" # Minimalist GNU for Windows
+---| "msvc" # Microsoft Visual C/C++ Compiler
+---| "muslcc" # The musl-based cross-compilation toolchains
+---| "nasm" # NASM Assembler
+---| "ndk" # Android NDK
+---| "nim" # Nim Programming Language Compiler
+---| "rust" # Rust Programming Language Compiler
+---| "sdcc" # Small Device C Compiler
+---| "swift" # Swift Programming Language Compiler
+---| "ti-c2000" # TI-CGT C2000 compiler
+---| "ti-c6000" # TI-CGT C6000 compiler
+---| "tinycc" # Tiny C Compiler
+---| "verilator" # Verilator open-source SystemVerilog simulator and lint system
+---| "wasi" # WASI-enabled WebAssembly C/C++ toolchain.
+---| "xcode" # Xcode IDE
+---| "yasm" # The Yasm Modular Assembler
+---| "zig" # Zig Programming Language Compiler
+---| "zigcc" # Use zig cc/c++ as C/C++ Compiler

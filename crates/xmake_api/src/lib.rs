@@ -8,17 +8,17 @@
 //!   and of imported modules, with the builtin modules (`os`, `path`, ...),
 //!   the methods of instances (`target:name()`) and `import(...)`.
 //!
-//! [`ApiDb::builtin`] is generated from a recent xmake (see
-//! `tools/gen_builtin.py`) and costs no allocation: every table is a borrowed
-//! `Cow`. The language server then asks the installed xmake for its own lists
-//! ([`ApiDb::apply_show_apis`], [`ApiDb::apply_list`]), which replaces the
-//! affected tables: only those become owned. This keeps completion in sync
-//! with the xmake version actually used, older or newer.
+//! Everything is written in the stubs (`stubs/<xmake version>/*.lua`, see
+//! [`Stubs`]): the functions with their types and documentation, tagged with
+//! where xmake has them, from which [`ApiDb::from_stubs`] builds the lists.
+//! [`ApiDb::builtin`] reads the stubs embedded in the binary. The language
+//! server asks the installed xmake for its own lists
+//! ([`ApiDb::apply_show_apis`], [`ApiDb::apply_list`]) and writes stubs for it
+//! ([`render::update`]), so that completion follows the xmake actually used.
 
-mod doc_links;
 mod docs;
-mod generated;
 mod overlay;
+pub mod render;
 mod signature;
 mod stubs;
 mod values;
@@ -33,7 +33,10 @@ pub use crate::{
     },
     overlay::{ListKind, OverlayError},
     signature::{api_params, render_signature},
-    stubs::{Class, Function, GLOBALS, Param, Return, Stubs, class_of},
+    stubs::{
+        Alias, BUILTIN_VERSION, Class, Contexts, Function, GLOBALS, Location, Param, Return, Stubs,
+        class_of,
+    },
     values::{ArgValues, BUILTIN_CONFIGS, TOOLS, arg_values, option_keys, scoped_arg_values},
     version::Version,
 };
@@ -153,6 +156,19 @@ impl ApiKind {
             _ => return None,
         };
         Some(kind)
+    }
+
+    /// The key parsed by [`ApiKind::parse`].
+    pub fn as_str(self) -> &'static str {
+        match self {
+            ApiKind::Values => "values",
+            ApiKind::Paths => "paths",
+            ApiKind::KeyValues => "keyvalues",
+            ApiKind::Dictionary => "dictionary",
+            ApiKind::Groups => "groups",
+            ApiKind::Script => "script",
+            ApiKind::Custom => "custom",
+        }
     }
 
     /// The kind of an API known by name only: callbacks by their prefix,
@@ -281,25 +297,112 @@ impl Default for ApiDb {
 }
 
 impl ApiDb {
-    /// The database generated from the xmake listed in [`generated::VERSION`].
+    /// The database of the stubs embedded in the binary.
     pub fn builtin() -> ApiDb {
-        use generated as g;
+        static BUILTIN: std::sync::OnceLock<ApiDb> = std::sync::OnceLock::new();
+        BUILTIN.get_or_init(|| ApiDb::from_stubs(Stubs::builtin())).clone()
+    }
+
+    /// The database of the tagged functions of `stubs`, see [`Stubs`].
+    pub fn from_stubs(stubs: &'static Stubs) -> ApiDb {
+        let scopes: Vec<(String, Scope)> = std::iter::once(Scope::Root)
+            .chain(Scope::NAMED)
+            .map(|s| (render::scope_class(s), s))
+            .collect();
+        let mut scope_apis = Vec::new();
+        let (mut description_functions, mut script_functions) = (Vec::new(), Vec::new());
+        let mut description_modules: std::collections::BTreeMap<&str, Vec<Str>> =
+            std::collections::BTreeMap::new();
+        let mut script_modules = description_modules.clone();
+        let mut instance_methods: std::collections::BTreeMap<&str, Vec<Str>> =
+            std::collections::BTreeMap::new();
+        let mut extension_apis = Vec::new();
+        for f in stubs.functions() {
+            if let Some(kind) = f.kind
+                && let Some((_, scope)) = scopes.iter().find(|(c, _)| c == f.owner)
+            {
+                scope_apis.push(ScopeApi { scope: *scope, name: Cow::Borrowed(f.name), kind });
+            }
+            let c = f.contexts;
+            if f.owner == GLOBALS {
+                if c.description {
+                    description_functions.push(Cow::Borrowed(f.name));
+                }
+                if c.script {
+                    script_functions.push(Cow::Borrowed(f.name));
+                }
+                continue;
+            }
+            if c.description {
+                description_modules.entry(f.owner).or_default().push(Cow::Borrowed(f.name));
+            }
+            if c.script {
+                script_modules.entry(f.owner).or_default().push(Cow::Borrowed(f.name));
+            }
+            if c.instance {
+                instance_methods.entry(f.owner).or_default().push(Cow::Borrowed(f.name));
+            }
+            if c.import {
+                extension_apis.push(Cow::Owned(format!("{}.{}", f.owner, f.name)));
+            }
+        }
+        scope_apis.sort_by(|a, b| (a.scope, &a.name).cmp(&(b.scope, &b.name)));
+        scope_apis.dedup_by(|a, b| a.scope == b.scope && a.name == b.name);
+        let modules = |map: std::collections::BTreeMap<&'static str, Vec<Str>>| -> Vec<Module> {
+            map.into_iter()
+                .map(|(name, mut functions)| {
+                    functions.sort();
+                    functions.dedup();
+                    Module { name: Cow::Borrowed(name), functions: Cow::Owned(functions) }
+                })
+                .collect()
+        };
+        let sorted = |mut list: Vec<Str>| -> Cow<'static, [Str]> {
+            list.sort();
+            list.dedup();
+            Cow::Owned(list)
+        };
+        let alias = |name: &str| -> Vec<Str> {
+            stubs
+                .alias(name)
+                .map(|a| a.values.iter().map(|(v, _)| Cow::Borrowed(*v)).collect())
+                .unwrap_or_default()
+        };
+        let named = |name: &str| -> Cow<'static, [Named]> {
+            let values = stubs.alias(name).map(|a| {
+                a.values
+                    .iter()
+                    .map(|(v, d)| Named { name: Cow::Borrowed(*v), description: Cow::Borrowed(*d) })
+                    .collect()
+            });
+            Cow::Owned(values.unwrap_or_default())
+        };
         ApiDb {
-            version: Version::parse(g::VERSION),
-            scope_apis: Cow::Borrowed(g::SCOPE_APIS),
-            description_functions: Cow::Borrowed(g::DESCRIPTION_FUNCTIONS),
-            description_modules: Cow::Borrowed(g::DESCRIPTION_MODULES),
-            script_functions: Cow::Borrowed(g::SCRIPT_FUNCTIONS),
-            script_modules: Cow::Borrowed(g::SCRIPT_MODULES),
-            instance_methods: Cow::Borrowed(g::INSTANCE_METHODS),
-            extension_apis: Cow::Borrowed(g::EXTENSION_APIS),
+            version: stubs.version.and_then(Version::parse),
+            scope_apis: Cow::Owned(scope_apis),
+            description_functions: sorted(description_functions),
+            description_modules: Cow::Owned(modules(description_modules)),
+            script_functions: sorted(script_functions),
+            script_modules: Cow::Owned(modules(script_modules)),
+            instance_methods: Cow::Owned(
+                Instance::ALL
+                    .into_iter()
+                    .map(|instance| InstanceMethods {
+                        instance,
+                        methods: sorted(
+                            instance_methods.get(instance.name()).cloned().unwrap_or_default(),
+                        ),
+                    })
+                    .collect(),
+            ),
+            extension_apis: sorted(extension_apis),
             values: KnownValues {
-                platforms: Cow::Borrowed(g::PLATFORMS),
-                architectures: Cow::Borrowed(g::ARCHITECTURES),
-                modes: Cow::Borrowed(g::MODES),
-                rules: Cow::Borrowed(g::RULES),
-                policies: Cow::Borrowed(g::POLICIES),
-                toolchains: Cow::Borrowed(g::TOOLCHAINS),
+                platforms: Cow::Owned(alias("xmake.platform")),
+                architectures: Cow::Owned(alias("xmake.arch")),
+                modes: Cow::Owned(alias("xmake.mode")),
+                rules: Cow::Owned(alias("xmake.rule")),
+                policies: named("xmake.policy"),
+                toolchains: named("xmake.toolchain"),
             },
         }
     }
