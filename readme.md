@@ -125,7 +125,10 @@ Every API is described by stubs in `crates/xmake_api/stubs/<xmake version>/`,
 Lua files with standard LuaCATS annotations (`---@class`, `---@field`,
 `---@param`, `---@return`, `---@alias`, `---@see`) and Markdown documentation
 (`# Examples`, `# Notes`). They ship next to the server, and go to definition
-opens them. Where an API exists follows from its file:
+opens them (also from the types of annotations: `---@param k xmake.value.kind`).
+With the Lua extension (sumneko), the stubs in use are added to its
+`Lua.workspace.library`: in the stubs, its go to definition, references and
+hover work on the types too. Where an API exists follows from its file:
 
 | File | APIs |
 | ---- | ---- |

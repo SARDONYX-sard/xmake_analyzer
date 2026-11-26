@@ -176,6 +176,8 @@ pub struct Class {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Alias {
     pub name: &'static str,
+    /// The name in `---@alias name`.
+    pub location: Location,
     /// The type of a one line alias: `---@alias xmake.value.target string`.
     pub ty: &'static str,
     pub values: Vec<(&'static str, &'static str)>,
@@ -370,7 +372,7 @@ impl Stubs {
     }
 
     fn parse_file(&mut self, file: &'static str, text: &'static str) {
-        self.parse_aliases(text);
+        self.parse_aliases(file, text);
         let parse = parse(text, Dialect::XMAKE_DEFAULT);
         let root = parse.root(text);
         // Local names of the class tables: `local target = {}`.
@@ -401,10 +403,10 @@ impl Stubs {
     }
 
     /// `---@alias name [type]` and its `---| "value" # description` lines.
-    fn parse_aliases(&mut self, text: &'static str) {
+    fn parse_aliases(&mut self, file: &'static str, text: &'static str) {
         let mut current: Option<Alias> = None;
-        for line in text.lines() {
-            let line = line.trim();
+        for raw in text.lines() {
+            let line = raw.trim();
             if let Some(value) = line.strip_prefix("---|") {
                 let Some(alias) = current.as_mut() else {
                     continue;
@@ -418,7 +420,11 @@ impl Stubs {
             if let Some(rest) = line.strip_prefix("---@alias") {
                 let rest = rest.trim();
                 let (name, ty) = rest.split_once(char::is_whitespace).unwrap_or((rest, ""));
-                current = Some(Alias { name, ty: ty.trim(), values: Vec::new() });
+                // `raw` and `name` are slices of `text`.
+                let start = name.as_ptr() as usize - text.as_ptr() as usize;
+                let range = TextRange::at((start as u32).into(), (name.len() as u32).into());
+                let location = Location { file, range };
+                current = Some(Alias { name, location, ty: ty.trim(), values: Vec::new() });
             }
         }
         self.aliases.extend(current);

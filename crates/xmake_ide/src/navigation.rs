@@ -197,6 +197,10 @@ pub fn goto_definition<'a>(
     if let Some(target) = stub_at(project, file, offset) {
         return vec![target];
     }
+    // `xmake.value.kind` of `---@param k xmake.value.kind`: its stub.
+    if let Some(target) = stub_type_at(file, offset) {
+        return vec![target];
+    }
     let Some((symbol, _)) = symbol_at(file, offset) else {
         return Vec::new();
     };
@@ -293,6 +297,31 @@ fn stub_at<'a>(project: &Project, file: &AnalyzedFile, offset: TextSize) -> Opti
     };
     let path = stubs.path_of(function.location)?;
     Some(NavTarget { path: Cow::Owned(path), range: function.location.range })
+}
+
+/// The class or alias of the stubs named at `offset` in an annotation:
+/// `xmake.value.kind`, `target`.
+fn stub_type_at<'a>(file: &AnalyzedFile, offset: TextSize) -> Option<NavTarget<'a>> {
+    let token = token_at(file, offset).filter(|t| t.kind() == SyntaxKind::LINE_COMMENT)?;
+    let text = token.text();
+    if !text.trim_start_matches('-').trim_start().starts_with('@') {
+        return None;
+    }
+    let at = usize::from(offset - token.text_range().start());
+    let is_name = |c: char| c.is_ascii_alphanumeric() || c == '_' || c == '.';
+    let start = text[..at].rfind(|c: char| !is_name(c)).map_or(0, |i| i + 1);
+    let end = text[at..].find(|c: char| !is_name(c)).map_or(text.len(), |i| at + i);
+    let name = text.get(start..end)?.trim_matches('.');
+    if name.is_empty() {
+        return None;
+    }
+    let stubs = xmake_api::Stubs::get();
+    let location = stubs
+        .alias(name)
+        .map(|a| a.location)
+        .or_else(|| stubs.class(name).map(|c| c.location))?;
+    let path = stubs.path_of(location)?;
+    Some(NavTarget { path: Cow::Owned(path), range: location.range })
 }
 
 /// `greet` in `utils.greet` with `utils` a module of the project.
@@ -828,6 +857,22 @@ task_end()
         assert!(at("cp(").ends_with("script/os.lua"));
         assert!(at("name()").ends_with("script/instances/target.lua"));
         assert!(at("core.base").ends_with("modules/core/base/json.lua"));
+
+        // A type of an annotation: the alias or class of the stubs.
+        let text = "---@param k xmake.value.kind
+---@param t target
+local function f(k, t) end
+";
+        let path = PathBuf::from("/p/xmake.lua");
+        let file = p.set_file(path.clone(), Arc::from(text));
+        let at = |needle: &str| {
+            let found = goto_definition(&p, &file, &path, offset_of(text, needle));
+            let target = found.first().unwrap_or_else(|| panic!("{needle}"));
+            target.path.to_string_lossy().replace('\', "/")
+        };
+        assert!(at("value.kind").ends_with("types/values.lua"));
+        assert!(at("target
+").ends_with("script/instances/target.lua"));
     }
 
     #[test]

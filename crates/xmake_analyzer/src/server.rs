@@ -44,6 +44,13 @@ enum Event {
     Packages(Arc<xmake_ide::PackageIndex>, Vec<PathBuf>),
 }
 
+/// `xmake-analyzer/stubs`: the directory of the stubs in use, for the Lua
+/// extension to read them as a library.
+#[derive(Serialize)]
+struct StubsDir {
+    path: String,
+}
+
 /// `xmake-analyzer/includedFiles`: the URIs of the `.lua` files loaded by
 /// `includes()`.
 #[derive(Serialize)]
@@ -303,8 +310,18 @@ impl Server {
         self.send(Request::new(id, "client/registerCapability".to_owned(), params).into());
     }
 
+    /// Tells the client the directory of the stubs in use.
+    fn send_stubs_dir(&self) {
+        let Some(dir) = xmake_ide::xmake_api::Stubs::get().dir() else {
+            return;
+        };
+        let path = dir.display().to_string();
+        self.send(Notification::new("xmake-analyzer/stubs".to_owned(), StubsDir { path }).into());
+    }
+
     /// Scans the workspace and probes xmake in the background.
     fn start_jobs(&mut self) {
+        self.send_stubs_dir();
         let roots = self.roots.clone();
         let tx = self.events_tx.clone();
         spawn("xmake-analyzer-scan", move || {
@@ -515,6 +532,7 @@ impl Server {
                 );
                 let probe = *probe;
                 self.project.db = probe.db;
+                self.send_stubs_dir();
                 self.project.xmake_version = Some(probe.version);
                 self.luajit = Some(probe.luajit);
                 self.update_dialect();

@@ -177,6 +177,53 @@ fn ident_hover(project: &Project, file: &AnalyzedFile, token: SyntaxToken<'_>) -
     }
 }
 
+/// At most this many members are listed by [`with_members`].
+const MAX_MEMBERS: usize = 30;
+
+/// `signature` followed by the members of the module or class `owner`, as
+/// the Lua extension shows tables:
+///
+/// ```lua
+/// local json: core.base.json {
+///     decode: function,
+///     encode: function,
+///     ...(+3)
+/// }
+/// ```
+fn with_members(project: &Project, signature: &str, owner: &str, script: bool) -> String {
+    let stubs = Stubs::get();
+    let mut members: Vec<(String, &str)> = Vec::new();
+    if let Some(class) = stubs.class(owner) {
+        members.extend(class.fields.iter().map(|f| (f.name.to_owned(), f.ty)));
+    }
+    members.extend(stubs.all_members(owner).map(|f| (f.name.to_owned(), "function")));
+    if let Some(module) = project.db.module(owner, script) {
+        members.extend(module.functions.iter().map(|f| (f.to_string(), "function")));
+    }
+    // `core.base.json.decode`: the functions of an importable module.
+    let prefix = format!("{owner}.");
+    for api in project.db.extension_apis() {
+        if let Some(rest) = api.strip_prefix(&prefix) {
+            let name = rest.split('.').next().unwrap_or(rest);
+            members.push((name.to_owned(), if rest.contains('.') { "table" } else { "function" }));
+        }
+    }
+    members.sort();
+    members.dedup_by(|a, b| a.0 == b.0);
+    if members.is_empty() {
+        return signature.to_owned();
+    }
+    let mut out = format!("{signature} {{\n");
+    for (name, ty) in members.iter().take(MAX_MEMBERS) {
+        let _ = writeln!(out, "    {name}: {ty},");
+    }
+    if members.len() > MAX_MEMBERS {
+        let _ = writeln!(out, "    ...(+{})", members.len() - MAX_MEMBERS);
+    }
+    out.push('}');
+    out
+}
+
 fn binding_hover(project: &Project, file: &AnalyzedFile, binding: &Binding<'_>) -> String {
     let name = binding.name;
     let statement = declaration(file, binding.range);
@@ -189,7 +236,14 @@ fn binding_hover(project: &Project, file: &AnalyzedFile, binding: &Binding<'_>) 
                 Some(table) if table.kind() == SyntaxKind::TABLE_EXPR => {
                     format!("local {name}: {}", crate::tables::shape(project, file, table))
                 }
-                _ => format!("local {name}: {}", ty()),
+                _ => {
+                    let ty = ty();
+                    let signature = format!("local {name}: {ty}");
+                    match ty.owner().filter(|_| ty.module().is_some() || ty.class().is_some()) {
+                        Some(owner) => with_members(project, &signature, owner, true),
+                        None => signature,
+                    }
+                }
             },
         },
         BindingKind::LoopVar => format!("for {name}: {}", ty()),
@@ -199,7 +253,9 @@ fn binding_hover(project: &Project, file: &AnalyzedFile, binding: &Binding<'_>) 
         },
         BindingKind::Param(Some(instance)) => format!("(parameter) {name}: {}", instance.name()),
         BindingKind::Param(None) => format!("(parameter) {name}: {}", ty()),
-        BindingKind::Import { module } => format!("import(\"{module}\")"),
+        BindingKind::Import { module } => {
+            with_members(project, &format!("local {name}: {module}"), module, true)
+        }
     };
     let doc: Option<Cow<'_, str>> =
         statement.and_then(doc_comment).or_else(|| match binding.kind {
@@ -406,9 +462,10 @@ fn type_doc(project: &Project, file: &AnalyzedFile, name: &str) -> Option<String
         ));
     }
     if let Some(class) = Stubs::get().class(name).filter(|c| !c.name.starts_with("xmake.")) {
+        let members = with_members(project, &format!("(class) {name}"), name, true);
         let signature = format!(
             "```lua
-(class) {name}
+{members}
 ```"
         );
         return Some(match class.doc.as_str() {
@@ -491,11 +548,9 @@ fn global_hover(project: &Project, file: &AnalyzedFile, token: SyntaxToken<'_>) 
         }
         return global_variable_hover(project, file, name);
     };
-    let doc = format!(
-        "Builtin module with {} functions: type `{name}.` to list them.",
-        module.functions.len()
-    );
-    Some(page("xmake", &format!("module {name}"), &doc, None))
+    let doc = format!("Builtin module with {} functions.", module.functions.len());
+    let signature = with_members(project, &format!("{name}: {name}"), name, script);
+    Some(page("xmake", &signature, &doc, None))
 }
 
 /// The signature of the manual (`set_default(default: boolean)`) instead of
@@ -886,6 +941,34 @@ mod tests {
         let mut project = Project::new(ApiDb::builtin(), Dialect::XMAKE_DEFAULT);
         let file = project.set_file(PathBuf::from("xmake.lua"), Arc::from(text.as_str()));
         hover(&project, &file, TextSize::new(offset as u32)).map(|h| h.markdown)
+    }
+
+    #[test]
+    fn members_of_tables() {
+        let os = hover_at("target('a')
+  on_load(function (t)
+    o$s.cp('a', 'b')
+  end)
+")
+            .expect("os");
+        assert!(os.contains("os: os {
+") && os.contains("    cp: function,"), "{os}");
+        assert!(os.contains("...(+"), "{os}");
+        let json = hover_at("target('a')
+  on_load(function (t)
+    import('core.base.json')
+    js$on.decode('{}')
+  end)
+")
+            .expect("json");
+        assert!(json.contains("local json: core.base.json {") && json.contains("    decode: function,"), "{json}");
+        let local = hover_at("target('a')
+  on_load(function (t)
+    local c$m = import('package.tools.cmake')
+  end)
+")
+            .expect("local");
+        assert!(local.contains("    install: function,"), "{local}");
     }
 
     #[test]

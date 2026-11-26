@@ -23,6 +23,9 @@ const IncludedFilesNotification = new NotificationType<{ uris: string[] }>(
   "xmake-analyzer/includedFiles",
 );
 
+/** The directory of the stubs the server uses. */
+const StubsNotification = new NotificationType<{ path: string }>("xmake-analyzer/stubs");
+
 const SECTION = "xmake-analyzer";
 const LANGUAGE = "xmake";
 /** Where the patterns this extension wrote to the settings are remembered. */
@@ -189,6 +192,9 @@ async function start(context: vscode.ExtensionContext): Promise<void> {
     IncludedFilesNotification,
     ({ uris }) => void onIncludedFiles(uris),
   );
+  client.onNotification(StubsNotification, ({ path: dir }) => {
+    void queueStubsLibrary(dir);
+  });
   try {
     await client.start();
   } catch (error) {
@@ -251,6 +257,48 @@ async function onIncludedFiles(uris: string[]): Promise<void> {
   claimedFiles = files;
   vscode.workspace.textDocuments.forEach(claimIfIncluded);
   await queueClaims(files);
+}
+
+/** Where `Lua.workspace.library` got the stubs, per workspace folder. */
+const LIBRARY_KEY = "luaLibrary";
+
+/** The writes of `Lua.workspace.library`, one after the other. */
+let libraryWrites: Promise<void> = Promise.resolve();
+
+function queueStubsLibrary(dir: string): Promise<void> {
+  libraryWrites = libraryWrites
+    .then(() => writeStubsLibrary(dir))
+    .catch((error: unknown) => {
+      output?.warn(`could not add the stubs to Lua.workspace.library: ${String(error)}`);
+    });
+  return libraryWrites;
+}
+
+/**
+ * The stubs are standard LuaCATS: given to the Lua extension (sumneko) as a
+ * library, go to definition, references and hover work in them, on
+ * `xmake.value.kind` and the classes. Only the directory added here before
+ * is replaced; the user's entries stay.
+ */
+async function writeStubsLibrary(dir: string): Promise<void> {
+  const state = extensionContext?.workspaceState;
+  const enabled = vscode.workspace.getConfiguration(SECTION).get<boolean>("claimIncludedFiles");
+  if (!state || !enabled || !vscode.extensions.getExtension("sumneko.lua")) return;
+  for (const folder of vscode.workspace.workspaceFolders ?? []) {
+    const hasProject =
+      (await vscode.workspace.findFiles(new vscode.RelativePattern(folder, "**/xmake.lua"), null, 1))
+        .length > 0;
+    if (!hasProject) continue;
+    const key = `${LIBRARY_KEY}:${folder.uri.toString()}`;
+    const previous = state.get<string>(key);
+    const config = vscode.workspace.getConfiguration("Lua", folder.uri);
+    const current = config.inspect<string[]>("workspace.library")?.workspaceFolderValue ?? [];
+    if (previous === dir && current.includes(dir)) continue;
+    const value = [...current.filter((p) => p !== previous && p !== dir), dir];
+    await config.update("workspace.library", value, vscode.ConfigurationTarget.WorkspaceFolder);
+    await state.update(key, dir);
+    output?.info(`${folder.name}: Lua.workspace.library has the stubs ${dir}`);
+  }
 }
 
 /** The files the server reported last. */
