@@ -242,6 +242,10 @@ fn repositories<'a>(project: &'a Project, file: &'a AnalyzedFile, out: &mut Vec<
             (name.len() as u32).into(),
         );
         let Some(entry) = index.get(name) else {
+            // In a repository xmake did not clone yet: unknown here only.
+            if project.has_remote_repositories() {
+                continue;
+            }
             let message = format!("unknown package `{name}`: no repository has it");
             let names = index.entries().iter().map(|e| e.name.as_str());
             let fix = fuzzy::closest(name, names).map(|c| Fix::replace(name_range, c));

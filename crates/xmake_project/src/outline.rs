@@ -89,6 +89,9 @@ pub struct Outline {
     /// `add_repositories("local-repo repo")`: the paths of the local
     /// repositories, as written (relative to the script, or absolute).
     pub repositories: Vec<String>,
+    /// `add_repositories` of a git URL, or of a computed value: their
+    /// packages are known only once xmake cloned them.
+    pub remote_repositories: bool,
     /// `set_xmakever("2.8.0")`.
     pub xmakever: Option<(Version, TextRange)>,
     pub errors: Vec<OutlineError>,
@@ -297,6 +300,13 @@ impl Walker {
                 }
             }
             "add_repositories" => {
+                let args = call.arg_list().into_iter().flat_map(|a| a.args());
+                let literals = args.filter(|a| a.kind() != SyntaxKind::TABLE_EXPR).all(|a| {
+                    Literal::cast(a).and_then(|l| l.token()).is_some_and(|t| t.kind().is_string())
+                });
+                if !literals {
+                    self.outline.remote_repositories = true;
+                }
                 for (_, value) in string_args(call) {
                     // `"name url [branch]"`: a path, not a git URL.
                     let mut words = value.split_whitespace();
@@ -305,6 +315,8 @@ impl Walker {
                     };
                     if !url.contains("://") && !url.starts_with("git@") {
                         self.outline.repositories.push(url.to_owned());
+                    } else {
+                        self.outline.remote_repositories = true;
                     }
                 }
             }

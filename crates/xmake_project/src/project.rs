@@ -125,9 +125,28 @@ impl Project {
             })
             .filter(|dir| dir.is_dir())
             .collect();
+        // The repositories xmake cloned for the projects (`add_repositories`
+        // of a git URL): `<project>/.xmake/<plat>/<arch>/repositories/<name>`.
+        let roots: Vec<&Path> = self
+            .files
+            .iter()
+            .filter(|(_, f)| f.outline.remote_repositories)
+            .filter_map(|(path, _)| path.parent())
+            .collect();
+        for root in roots {
+            for dir in project_dirs(root) {
+                dirs.extend(cloned_repositories(&dir));
+            }
+        }
         dirs.sort();
         dirs.dedup();
         dirs
+    }
+
+    /// Whether a file adds a repository the server may not see: a git URL,
+    /// or a computed value.
+    pub fn has_remote_repositories(&self) -> bool {
+        self.files.values().any(|f| f.outline.remote_repositories)
     }
 
     /// The modules of `file`: `"utils"` of `import("utils")`.
@@ -370,5 +389,55 @@ impl<'a> ProjectScope<'a> {
         self.files().flat_map(|(path, file)| {
             file.outline.requires.iter().map(move |&item| Located { path, file, item })
         })
+    }
+}
+
+/// `dir` and its ancestors: where the `.xmake` of the project may be.
+fn project_dirs(dir: &Path) -> impl Iterator<Item = PathBuf> + '_ {
+    dir.ancestors().take(4).map(Path::to_path_buf)
+}
+
+/// The repositories under `<dir>/.xmake/<plat>/<arch>/repositories/`.
+fn cloned_repositories(dir: &Path) -> Vec<PathBuf> {
+    let read = |d: &Path| -> Vec<PathBuf> {
+        std::fs::read_dir(d)
+            .map(|e| e.flatten().map(|e| e.path()).filter(|p| p.is_dir()).collect())
+            .unwrap_or_default()
+    };
+    let mut out = Vec::new();
+    for plat in read(&dir.join(".xmake")) {
+        for arch in read(&plat) {
+            out.extend(
+                read(&arch.join("repositories"))
+                    .into_iter()
+                    .filter(|r| r.join("packages").is_dir()),
+            );
+        }
+    }
+    out
+}
+
+#[cfg(test)]
+mod tests {
+    use std::sync::Arc;
+
+    use xmake_api::ApiDb;
+
+    use super::*;
+
+    /// `add_repositories` of a git URL: the clone of xmake under `.xmake`.
+    #[test]
+    fn cloned_repositories() {
+        let dir = std::env::temp_dir().join(format!("xmake-project-clone-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        let repo = dir.join(".xmake/windows/x64/repositories/my_repo");
+        std::fs::create_dir_all(repo.join("packages/z/zlib")).expect("dirs");
+        let mut project = Project::new(ApiDb::builtin(), Dialect::XMAKE_DEFAULT);
+        let text =
+            "add_repositories('my_repo ' .. (os.getenv('X') or 'https://example.com/r.git'))\n";
+        project.set_file(dir.join("xmake.lua"), Arc::from(text));
+        assert!(project.has_remote_repositories());
+        assert_eq!(project.local_repositories(), [repo]);
+        let _ = std::fs::remove_dir_all(&dir);
     }
 }
