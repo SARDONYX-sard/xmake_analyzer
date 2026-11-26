@@ -29,8 +29,18 @@ const run = (cmd) => {
 /** The trimmed output of `cmd`. */
 const capture = (cmd) => execSync(cmd, { cwd: __dirname, encoding: "utf8" }).trim();
 
+/** The stubs of the APIs (`crates/xmake_api/stubs/<xmake version>/`). */
+const STUBS = path.join(__dirname, "crates", "xmake_api", "stubs");
+
+/** Copies the stubs to `dst`, which the server reads next to itself. */
+function copyStubs(dst) {
+  fs.rmSync(dst, { recursive: true, force: true });
+  fs.cpSync(STUBS, dst, { recursive: true });
+  console.log(`copied ${STUBS} -> ${dst}`);
+}
+
 /**
- * Copies the language server next to the compiled extension in build/, and
+ * Copies the language server and the stubs next to the compiled extension in build/, and
  * optionally packages a platform specific VSIX.
  */
 function build(args) {
@@ -50,6 +60,7 @@ function build(args) {
   fs.copyFileSync(src, dst);
   if (!windows) fs.chmodSync(dst, 0o755);
   console.log(`copied ${src} -> ${dst}`);
+  copyStubs(path.join(buildDir, "stubs"));
 
   if (!args.includes("--vsix")) return;
   run("npm run check");

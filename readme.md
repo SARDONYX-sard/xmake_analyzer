@@ -39,11 +39,15 @@ Values completed in strings: `set_kind`, `set_languages`, `set_warnings`, `set_o
 
 ### xmake and Lua versions
 
-- **API lists**: at start, the server asks the installed xmake for its APIs
-  (`xmake show -l apis --json`, rules, policies, toolchains, platforms, ...). The
-  answers are cached per xmake build, so later starts only run `xmake --version`.
-  Without xmake, the lists bundled in the server are used (generated from xmake
-  3.1.1 by `tools/gen_builtin.py`).
+- **API lists**: the APIs are Lua stubs shipped with the server (see
+  [Types and stubs](#types-and-stubs)). At start, the server asks the installed
+  xmake for its APIs (`xmake show -l apis --json`, the kinds of the scope APIs,
+  rules, policies, toolchains, platforms, ...) and writes stubs for that xmake
+  to the cache (`%LOCALAPPDATA%\xmake_analyzer\cache`, `~/.cache/xmake_analyzer`
+  elsewhere), once per xmake build, showing its progress. Later starts only run
+  `xmake --version`. Without xmake, the shipped stubs are used. The command
+  **Clear the Cache of the xmake APIs** (or `xmake_analyzer stubs --clean`)
+  deletes the cache.
 - **Lua version**: xmake runs Lua 5.4 or LuaJIT. The parser accepts the syntax of
   Lua 5.1 to 5.5 and reports what the selected version lacks (`//` and bitwise
   operators before 5.3, `goto` in 5.1, `<const>` before 5.4, `global` before 5.5).
@@ -111,14 +115,28 @@ no build); what to run with it is up to the workflow.
 The input `version` defaults to the tag the action is used at, else `latest`;
 the outputs `path` and `version` give the executable and the release installed.
 
-Each release carries the bare executables (`xmake_analyzer-<target>[.exe]`) the
-action downloads, for Linux, macOS and Windows, x64 and ARM64.
+Each release carries the archives (`xmake_analyzer-<target>.zip` on Windows,
+`.tar.gz` elsewhere) the action downloads, for Linux, macOS and Windows, x64 and
+ARM64: the executable and the stubs it reads next to it (`stubs/`).
 
 ## Types and stubs
 
-The script APIs are described by stubs in `crates/xmake_api/stubs/*.lua`, written
-with LuaCATS annotations (`---@class`, `---@param`, `---@return`) and Markdown
-documentation (`# Examples`, `# Notes`). Types flow from them:
+Every API is described by stubs in `crates/xmake_api/stubs/<xmake version>/`,
+Lua files with standard LuaCATS annotations (`---@class`, `---@field`,
+`---@param`, `---@return`, `---@alias`, `---@see`) and Markdown documentation
+(`# Examples`, `# Notes`). They ship next to the server, and go to definition
+opens them. Where an API exists follows from its file:
+
+| File | APIs |
+| ---- | ---- |
+| `description/scopes/<scope>.lua` | the APIs of a scope, in a class per kind: `xmake.target.paths` |
+| `description/globals.lua`, `description/<module>.lua` | the functions and modules of `xmake.lua` |
+| `script/globals.lua`, `script/<module>.lua` | those of the scripts |
+| `script/instances/<instance>.lua` | the methods of `target`, `package`, ... |
+| `modules/<a>/<b>.lua` | the module `import("a.b")` |
+| `types/*.lua`, `values.lua` | the values the APIs accept (`---@alias`) and their options (`---@class`) |
+
+Types flow from them:
 
 ```lua
 on_load(function (target)
@@ -198,7 +216,8 @@ disable it for the workspace.
 | `xmake-analyzer.format.maxBlankLines`  | `1`     |                                                            |
 | `xmake-analyzer.lints`                 | `{}`    | lint levels: `{"unused-local": "allow"}`                   |
 
-Commands: **Restart Language Server**, **Reload the API Lists of xmake**.
+Commands: **Restart Language Server**, **Reload the API Lists of xmake**, **Clear the Cache
+of the xmake APIs**.
 
 Tasks (**Tasks: Run Task** > `xmake`): `format` runs `xmake format` (clang-format) and
 `lint` runs `xmake check clang.tidy` (clang-tidy, its warnings in the Problems view).
@@ -218,7 +237,9 @@ cargo build --release      # target/release/xmake_analyzer
 npm install
 npm run package            # build/xmake-analyzer.vsix with the server
 npm run debug              # debug build for the launch configuration (F5)
-python tools/gen_builtin.py  # regenerate the bundled API lists from the installed xmake
+xmake_analyzer stubs       # update the stubs from the installed xmake: crates/xmake_api/stubs/<version>
+python tools/gen_doc_links.py && xmake_analyzer stubs --manual build/manual.json
+                           # ... with the prototypes and links of the manual
 ```
 
 To release, from an up-to-date `main` with a clean working tree:
@@ -253,8 +274,8 @@ xmake Analyzer is not affiliated with the xmake project. It uses or follows:
 
 | Source | License | Used for |
 | ------ | ------- | -------- |
-| [xmake](https://github.com/xmake-io/xmake) | Apache-2.0 | The builtin API lists (`crates/xmake_api/src/generated.rs`, from `xmake show -l apis` by `tools/gen_builtin.py`), the tool names (`modules/core/tools`), and the behaviors the checks follow, read from its sources (script APIs, `$(...)` variables, `includes`, errors raised). The stubs describe its script APIs. |
-| [xmake-docs](https://github.com/xmake-io/xmake-docs), the manual at [xmake.io](https://xmake.io) | No license stated in the repository; © its authors | The links to the manual, the prototypes and the parameter descriptions of `crates/xmake_api/src/doc_links.rs` (`tools/gen_doc_links.py`), quoted to document the APIs. |
+| [xmake](https://github.com/xmake-io/xmake) | Apache-2.0 | The API lists of the stubs (`crates/xmake_api/stubs/`, from `xmake show -l apis` by `xmake_analyzer stubs`), the tool names (`modules/core/tools`), and the behaviors the checks follow, read from its sources (script APIs, `$(...)` variables, `includes`, errors raised). The stubs describe its script APIs. |
+| [xmake-docs](https://github.com/xmake-io/xmake-docs), the manual at [xmake.io](https://xmake.io) | No license stated in the repository; © its authors | The links to the manual (`---@see`), the prototypes and the parameter descriptions of the stubs (`tools/gen_doc_links.py`), quoted to document the APIs. |
 | [xmake-vscode](https://github.com/xmake-io/xmake-vscode) | Apache-2.0 | Consulted for what the official extension does; no code copied. |
 | [Lua 5.x reference manuals](https://www.lua.org/manual/) | MIT (Lua) | The stubs of `string`, `table`, `math` and the base functions. |
 | [LuaCATS annotations](https://luals.github.io/wiki/annotations/) of [lua-language-server](https://github.com/LuaLS/lua-language-server) | MIT | The notation of the stubs and of the types. |

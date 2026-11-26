@@ -50,8 +50,8 @@ runs:
             exit 1
             ;;
         esac
-        exe=""
-        if [ "$RUNNER_OS" = Windows ]; then exe=.exe; fi
+        exe="" archive=tar.gz
+        if [ "$RUNNER_OS" = Windows ]; then exe=.exe archive=zip; fi
 
         # The version: the input, else the tag of the action, else the latest.
         version="$INPUT_VERSION"
@@ -63,7 +63,8 @@ runs:
           fi
         fi
 
-        asset="xmake_analyzer-$target$exe"
+        # The archive: the executable and the stubs it reads next to it.
+        asset="xmake_analyzer-$target.$archive"
         if [ "$version" = latest ]; then
           url="https://github.com/$REPOSITORY/releases/latest/download/$asset"
         else
@@ -74,10 +75,13 @@ runs:
         mkdir -p "$dir"
         path="$dir/xmake_analyzer$exe"
         echo "Downloading $url"
-        if ! curl --fail --silent --show-error --location --retry 3 --output "$path" "$url"; then
+        if ! curl --fail --silent --show-error --location --retry 3 --output "$dir/$asset" "$url"; then
           echo "::error::cannot download $asset of the release $version of $REPOSITORY"
           exit 1
         fi
+        # `tar` of the runners reads zip archives too.
+        tar -xf "$dir/$asset" -C "$dir"
+        rm "$dir/$asset"
         chmod +x "$path"
 
         echo "$dir" >> "$GITHUB_PATH"

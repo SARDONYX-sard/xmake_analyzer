@@ -8,10 +8,10 @@
 //!   and of imported modules, with the builtin modules (`os`, `path`, ...),
 //!   the methods of instances (`target:name()`) and `import(...)`.
 //!
-//! Everything is written in the stubs (`stubs/<xmake version>/*.lua`, see
-//! [`Stubs`]): the functions with their types and documentation, tagged with
-//! where xmake has them, from which [`ApiDb::from_stubs`] builds the lists.
-//! [`ApiDb::builtin`] reads the stubs embedded in the binary. The language
+//! Everything is written in the stubs (`stubs/<xmake version>/**.lua`, see
+//! [`Stubs`]): the functions with their types and documentation, in the
+//! files of where xmake has them, from which [`ApiDb::from_stubs`] builds the
+//! lists. [`ApiDb::builtin`] reads the stubs shipped with the server. The language
 //! server asks the installed xmake for its own lists
 //! ([`ApiDb::apply_show_apis`], [`ApiDb::apply_list`]) and writes stubs for it
 //! ([`render::update`]), so that completion follows the xmake actually used.

@@ -13,3 +13,5 @@
 !build/extension.cjs
 !build/xmake_analyzer
 !build/xmake_analyzer.exe
+# The stubs of the APIs, read by the server from `stubs/` next to it.
+!build/stubs/**

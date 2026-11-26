@@ -15,6 +15,8 @@ import { registerTasks } from "./tasks";
 
 /** Asks the server to run xmake again for its version and API lists. */
 const ReloadRequest = new RequestType0<null, void>("xmake-analyzer/reload");
+/** Deletes the cache of the server; answers its directory. */
+const ClearCacheRequest = new RequestType0<string, void>("xmake-analyzer/clearCache");
 
 /** The `.lua` files loaded by `includes()` of `xmake.lua` files. */
 const IncludedFilesNotification = new NotificationType<{ uris: string[] }>(
@@ -47,6 +49,7 @@ export async function activate(
       restart(context),
     ),
     vscode.commands.registerCommand(`${SECTION}.reloadXmake`, reloadXmake),
+    vscode.commands.registerCommand(`${SECTION}.clearCache`, clearCache),
     vscode.commands.registerCommand(`${SECTION}.runTask`, runTask),
     vscode.commands.registerCommand(`${SECTION}.showReferences`, showReferences),
     vscode.workspace.onDidChangeConfiguration((e) => {
@@ -213,6 +216,25 @@ async function reloadXmake(): Promise<void> {
   }
   await client.sendRequest(ReloadRequest);
   void vscode.window.setStatusBarMessage("xmake API lists reloaded", 3000);
+}
+
+/**
+ * `xmake-analyzer.clearCache`: deletes the outputs of xmake and the stubs
+ * written for each xmake version, then asks xmake again.
+ */
+async function clearCache(): Promise<void> {
+  if (!client?.isRunning()) {
+    void vscode.window.showErrorMessage("The xmake language server is not running.");
+    return;
+  }
+  try {
+    const dir = await client.sendRequest(ClearCacheRequest);
+    void vscode.window.showInformationMessage(
+      dir ? `xmake Analyzer: deleted the cache ${dir}.` : "xmake Analyzer: no cache.",
+    );
+  } catch (error) {
+    void vscode.window.showErrorMessage(`xmake Analyzer: ${String(error)}`);
+  }
 }
 
 // === Included files ===

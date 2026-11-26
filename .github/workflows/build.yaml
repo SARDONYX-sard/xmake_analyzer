@@ -1,9 +1,9 @@
 name: Build
 
-# Builds, for each platform, the VSIX, an archive (zip on Windows, tar.gz
-# elsewhere) of xmake_analyzer (the language server, `lint` and `fmt`) with its
-# licenses, and the bare executable, `xmake_analyzer-<target>[.exe]`, that the
-# GitHub Action of the repository (`action.yaml`) downloads. Pushes to main and
+# Builds, for each platform, the VSIX and an archive (zip on Windows, tar.gz
+# elsewhere) of xmake_analyzer (the language server, `lint` and `fmt`) with the
+# stubs of the APIs it reads (`stubs/`) and its licenses, which the GitHub
+# Action of the repository (`action.yaml`) downloads. Pushes to main and
 # pull requests upload them as artifacts; tags build with `release-lto` and
 # attach them to the GitHub release.
 on:
@@ -42,7 +42,6 @@ jobs:
     env:
       EXE: xmake_analyzer${{ matrix.job.exe }}
       ASSET: xmake_analyzer-${{ matrix.job.target }}.${{ matrix.job.archive }}
-      BINARY: xmake_analyzer-${{ matrix.job.target }}${{ matrix.job.exe }}
 
     steps:
       - uses: actions/checkout@v7
@@ -69,6 +68,8 @@ jobs:
         run: |
           mkdir -p build/pkg
           cp "target/${{ matrix.job.target }}/${{ env.PROFILE }}/$EXE" build/pkg/
+          # The stubs of the APIs: read from `stubs/` next to the executable.
+          cp -r crates/xmake_api/stubs build/pkg/stubs
           cp LICENSE-MIT LICENSE-APACHE readme.md build/pkg/
           {
             echo '# SPDX-License-Identifier: Apache-2.0 OR MIT'
@@ -92,11 +93,6 @@ jobs:
         if: runner.os != 'Windows'
         run: tar -czf "build/$ASSET" -C build/pkg .
 
-      # The executable alone, for the GitHub Action.
-      - name: Bare executable
-        shell: bash
-        run: cp "build/pkg/$EXE" "build/$BINARY"
-
       - uses: actions/setup-node@v7
         with:
           node-version: 24
@@ -116,12 +112,11 @@ jobs:
           path: |
             build/*.vsix
             build/${{ env.ASSET }}
-            build/${{ env.BINARY }}
 
       - name: Attach to GitHub Release
         if: startsWith(github.ref, 'refs/tags/')
         uses: ncipollo/release-action@v1.21.0
         with:
           allowUpdates: true
-          artifacts: build/*.vsix,build/${{ env.ASSET }},build/${{ env.BINARY }}
+          artifacts: build/*.vsix,build/${{ env.ASSET }}
           omitBody: true

@@ -112,6 +112,11 @@
         "category": "xmake Analyzer"
       },
       {
+        "command": "xmake-analyzer.clearCache",
+        "title": "Clear the Cache of the xmake APIs",
+        "category": "xmake Analyzer"
+      },
+      {
         "command": "xmake-analyzer.generateCompileCommands",
         "title": "Generate compile_commands.json",
         "category": "xmake Analyzer"

@@ -15,7 +15,7 @@ use crate::{ApiDb, ApiKind, Instance, Scope, Stubs};
 /// The values xmake lists, written whole.
 pub const VALUES_FILE: &str = "values.lua";
 
-/// The sections of the manual (`tools/gen_doc_links.py --json`): links,
+/// The sections of the manual (`tools/gen_doc_links.py`): links,
 /// prototypes and parameters of the APIs, per page.
 #[derive(Clone, Debug, Default, Deserialize)]
 pub struct Manual {
@@ -28,12 +28,13 @@ pub struct Manual {
 }
 
 impl Manual {
-    /// Parses the JSON of `tools/gen_doc_links.py --json`.
+    /// Parses the JSON of `tools/gen_doc_links.py`.
     pub fn from_json(json: &str) -> Result<Manual, serde_json::Error> {
         let mut manual: Manual = serde_json::from_str(json)?;
         manual.links.sort();
         manual.prototypes.sort();
-        manual.params.sort();
+        // Stable: the parameters of an API keep their order.
+        manual.params.sort_by(|a, b| (&a.0, &a.1).cmp(&(&b.0, &b.1)));
         Ok(manual)
     }
 
