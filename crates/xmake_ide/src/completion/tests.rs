@@ -368,3 +368,11 @@ fn values_from_the_types_of_the_stubs() {
     );
     assert!(has(&toolset, "cxx"), "{toolset:?}");
 }
+
+#[test]
+fn annotation_types_with_dots() {
+    let labels = complete("---@param config core.project.con$\nlocal function f(config) end\n");
+    assert!(has(&labels, "core.project.config"), "{labels:?}");
+    let labels = complete("---@param config $\nlocal function f(config) end\n");
+    assert!(has(&labels, "core.project.project"), "{labels:?}");
+}

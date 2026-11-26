@@ -257,7 +257,7 @@
         "editor.wordBasedSuggestions": "off",
         "editor.quickSuggestions": {
           "other": "on",
-          "comments": "off",
+          "comments": "on",
           "strings": "on"
         }
       }

@@ -99,6 +99,51 @@
           },
           "patterns": [
             {
+              "comment": "`@param name? type`, `@field name? type`: the name, then the type.",
+              "match": "(@(?:param|field))\\s+(?:(public|protected|private|package)\\s+)?([A-Za-z_][\\w.]*\\??|\\.\\.\\.)\\s+(\\S+)",
+              "captures": {
+                "1": {
+                  "name": "storage.type.annotation.xmake"
+                },
+                "2": {
+                  "name": "storage.modifier.annotation.xmake"
+                },
+                "3": {
+                  "name": "variable.parameter.annotation.xmake"
+                },
+                "4": {
+                  "name": "entity.name.type.annotation.xmake"
+                }
+              }
+            },
+            {
+              "comment": "`@return type`, `@type type`: the types.",
+              "match": "(@(?:return|type|overload|vararg))\\s+(\\S+)",
+              "captures": {
+                "1": {
+                  "name": "storage.type.annotation.xmake"
+                },
+                "2": {
+                  "name": "entity.name.type.annotation.xmake"
+                }
+              }
+            },
+            {
+              "comment": "`@class Name: Parent`, `@alias Name type`, `@enum Name`: the declared type.",
+              "match": "(@(?:class|alias|enum))\\s+([A-Za-z_][\\w.]*)(?:\\s*:\\s*([A-Za-z_][\\w.]*))?",
+              "captures": {
+                "1": {
+                  "name": "storage.type.annotation.xmake"
+                },
+                "2": {
+                  "name": "entity.name.type.class.annotation.xmake"
+                },
+                "3": {
+                  "name": "entity.other.inherited-class.annotation.xmake"
+                }
+              }
+            },
+            {
               "match": "(@(?:param|return|type|class|field|alias|generic|overload|deprecated|see|async|nodiscard|cast|operator|enum|module|meta|diagnostic|private|protected|package|vararg))\\b\\s*([A-Za-z_][\\w.]*)?",
               "captures": {
                 "1": {
