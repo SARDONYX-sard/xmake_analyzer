@@ -335,7 +335,7 @@ fn tool_completions<'a>(
         return None;
     }
     let mut items = Items::new(typed, replace);
-    for &tool in xmake_api::TOOLS {
+    for &(tool, _) in xmake_api::tools() {
         if let Some(item) = items.add(tool, CompletionKind::Value, group::VALUE) {
             item.detail = Some(Cow::Borrowed("tool"));
         }
@@ -357,17 +357,18 @@ fn tool_prefix_completions<'a>(
     {
         return None;
     }
-    let items = xmake_api::TOOLS.iter().filter(|tool| fuzzy_match(tool, typed)).map(|tool| {
-        CompletionItem {
-            label: Cow::Owned(format!("{tool}::")),
-            kind: CompletionKind::Value,
-            detail: Some(Cow::Owned(format!("the flag for `{tool}` only"))),
-            documentation: None,
-            snippet: None,
-            replace,
-            group: group::VALUE,
-        }
-    });
+    let items =
+        xmake_api::tools().iter().map(|(t, _)| t).filter(|tool| fuzzy_match(tool, typed)).map(
+            |tool| CompletionItem {
+                label: Cow::Owned(format!("{tool}::")),
+                kind: CompletionKind::Value,
+                detail: Some(Cow::Owned(format!("the flag for `{tool}` only"))),
+                documentation: None,
+                snippet: None,
+                replace,
+                group: group::VALUE,
+            },
+        );
     Some(items.collect())
 }
 
@@ -908,7 +909,7 @@ fn add_values<'a>(
         ArgValues::Options => project_names(items, Scope::Option),
         ArgValues::Configs => {
             project_names(items, Scope::Option);
-            for (name, doc) in xmake_api::BUILTIN_CONFIGS {
+            for (name, doc) in xmake_api::builtin_configs() {
                 if let Some(item) = items.add(name, CompletionKind::Value, group::VALUE) {
                     item.detail = Some(Cow::Borrowed("builtin configuration"));
                     item.documentation = Some(Cow::Borrowed(doc));

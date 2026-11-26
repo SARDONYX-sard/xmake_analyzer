@@ -34,10 +34,12 @@ pub use crate::{
     overlay::{ListKind, OverlayError},
     signature::{api_params, render_signature},
     stubs::{
-        Alias, BUILTIN_VERSION, Class, Contexts, Function, GLOBALS, Location, Param, Return, Stubs,
-        class_of,
+        Alias, Class, Contexts, Field, Function, GLOBALS, Location, Param, Return, Stubs, class_of,
+        manual_type,
     },
-    values::{ArgValues, BUILTIN_CONFIGS, TOOLS, arg_values, option_keys, scoped_arg_values},
+    values::{
+        ArgValues, arg_values, builtin_configs, option_keys, scoped_arg_values, tools, values,
+    },
     version::Version,
 };
 
@@ -297,31 +299,24 @@ impl Default for ApiDb {
 }
 
 impl ApiDb {
-    /// The database of the stubs embedded in the binary.
+    /// The database of the stubs shipped with the server.
     pub fn builtin() -> ApiDb {
         static BUILTIN: std::sync::OnceLock<ApiDb> = std::sync::OnceLock::new();
         BUILTIN.get_or_init(|| ApiDb::from_stubs(Stubs::builtin())).clone()
     }
 
-    /// The database of the tagged functions of `stubs`, see [`Stubs`].
+    /// The database of the functions of `stubs`, see [`Stubs`].
     pub fn from_stubs(stubs: &'static Stubs) -> ApiDb {
-        let scopes: Vec<(String, Scope)> = std::iter::once(Scope::Root)
-            .chain(Scope::NAMED)
-            .map(|s| (render::scope_class(s), s))
-            .collect();
+        use std::collections::BTreeMap;
         let mut scope_apis = Vec::new();
         let (mut description_functions, mut script_functions) = (Vec::new(), Vec::new());
-        let mut description_modules: std::collections::BTreeMap<&str, Vec<Str>> =
-            std::collections::BTreeMap::new();
+        let mut description_modules: BTreeMap<&str, Vec<Str>> = BTreeMap::new();
         let mut script_modules = description_modules.clone();
-        let mut instance_methods: std::collections::BTreeMap<&str, Vec<Str>> =
-            std::collections::BTreeMap::new();
+        let mut instance_methods: BTreeMap<&str, Vec<Str>> = BTreeMap::new();
         let mut extension_apis = Vec::new();
         for f in stubs.functions() {
-            if let Some(kind) = f.kind
-                && let Some((_, scope)) = scopes.iter().find(|(c, _)| c == f.owner)
-            {
-                scope_apis.push(ScopeApi { scope: *scope, name: Cow::Borrowed(f.name), kind });
+            if let Some((scope, kind)) = f.scope {
+                scope_apis.push(ScopeApi { scope, name: Cow::Borrowed(f.name), kind });
             }
             let c = f.contexts;
             if f.owner == GLOBALS {
@@ -348,25 +343,24 @@ impl ApiDb {
         }
         scope_apis.sort_by(|a, b| (a.scope, &a.name).cmp(&(b.scope, &b.name)));
         scope_apis.dedup_by(|a, b| a.scope == b.scope && a.name == b.name);
-        let modules = |map: std::collections::BTreeMap<&'static str, Vec<Str>>| -> Vec<Module> {
-            map.into_iter()
-                .map(|(name, mut functions)| {
-                    functions.sort();
-                    functions.dedup();
-                    Module { name: Cow::Borrowed(name), functions: Cow::Owned(functions) }
-                })
-                .collect()
-        };
         let sorted = |mut list: Vec<Str>| -> Cow<'static, [Str]> {
             list.sort();
             list.dedup();
             Cow::Owned(list)
         };
-        let alias = |name: &str| -> Vec<Str> {
-            stubs
+        let modules = |map: BTreeMap<&'static str, Vec<Str>>| -> Vec<Module> {
+            map.into_iter()
+                .map(|(name, functions)| Module {
+                    name: Cow::Borrowed(name),
+                    functions: sorted(functions),
+                })
+                .collect()
+        };
+        let alias = |name: &str| -> Cow<'static, [Str]> {
+            let values = stubs
                 .alias(name)
-                .map(|a| a.values.iter().map(|(v, _)| Cow::Borrowed(*v)).collect())
-                .unwrap_or_default()
+                .map(|a| a.values.iter().map(|(v, _)| Cow::Borrowed(*v)).collect());
+            Cow::Owned(values.unwrap_or_default())
         };
         let named = |name: &str| -> Cow<'static, [Named]> {
             let values = stubs.alias(name).map(|a| {
@@ -377,32 +371,29 @@ impl ApiDb {
             });
             Cow::Owned(values.unwrap_or_default())
         };
+        let instance_methods = Instance::ALL
+            .into_iter()
+            .map(|instance| InstanceMethods {
+                instance,
+                methods: sorted(instance_methods.get(instance.name()).cloned().unwrap_or_default()),
+            })
+            .collect();
         ApiDb {
-            version: stubs.version.and_then(Version::parse),
+            version: stubs.version.as_deref().and_then(Version::parse),
             scope_apis: Cow::Owned(scope_apis),
             description_functions: sorted(description_functions),
             description_modules: Cow::Owned(modules(description_modules)),
             script_functions: sorted(script_functions),
             script_modules: Cow::Owned(modules(script_modules)),
-            instance_methods: Cow::Owned(
-                Instance::ALL
-                    .into_iter()
-                    .map(|instance| InstanceMethods {
-                        instance,
-                        methods: sorted(
-                            instance_methods.get(instance.name()).cloned().unwrap_or_default(),
-                        ),
-                    })
-                    .collect(),
-            ),
+            instance_methods: Cow::Owned(instance_methods),
             extension_apis: sorted(extension_apis),
             values: KnownValues {
-                platforms: Cow::Owned(alias("xmake.platform")),
-                architectures: Cow::Owned(alias("xmake.arch")),
-                modes: Cow::Owned(alias("xmake.mode")),
-                rules: Cow::Owned(alias("xmake.rule")),
-                policies: named("xmake.policy"),
-                toolchains: named("xmake.toolchain"),
+                platforms: alias("xmake.value.platform"),
+                architectures: alias("xmake.value.arch"),
+                modes: alias("xmake.value.mode"),
+                rules: alias("xmake.value.rule"),
+                policies: named("xmake.value.policy"),
+                toolchains: named("xmake.value.toolchain"),
             },
         }
     }

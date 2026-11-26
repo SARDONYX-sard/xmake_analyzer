@@ -36,6 +36,8 @@ use crate::{
 /// Results of the background jobs.
 enum Event {
     Probed(Result<Box<Probe>, String>),
+    /// A step of the probe: asking xmake, writing its stubs.
+    ProbeStep(String),
     Scanned(Vec<(PathBuf, String)>),
     /// The packages of the repositories, with the local repositories
     /// (`add_repositories`) indexed.
@@ -65,6 +67,10 @@ pub(crate) struct Server {
     /// Whether the client accepts snippets in completions.
     pub(crate) snippets: bool,
     watch_files: bool,
+    /// Whether the client shows `$/progress`.
+    work_done_progress: bool,
+    /// The token of the progress of the probe, once begun.
+    probe_progress: Option<lsp_types::NumberOrString>,
     /// The Lua runtime of the installed xmake, once probed.
     luajit: Option<bool>,
     /// The local repositories (`add_repositories`) of the package index
@@ -99,6 +105,8 @@ impl Server {
             .and_then(|w| w.did_change_watched_files.as_ref())
             .and_then(|d| d.dynamic_registration)
             .unwrap_or(false);
+        let work_done_progress =
+            (init.capabilities.window.as_ref()).and_then(|w| w.work_done_progress).unwrap_or(false);
         let config = Config::from_json(init.initialization_options.as_ref());
         let (events_tx, events_rx) = crossbeam_channel::unbounded();
         let mut server = Server {
@@ -109,6 +117,8 @@ impl Server {
             config,
             snippets,
             watch_files,
+            work_done_progress,
+            probe_progress: None,
             luajit: None,
             repositories: None,
             xmake_files: None,
@@ -198,6 +208,28 @@ impl Server {
                 self.start_jobs();
                 self.send(Response::new_ok(req.id, ()).into());
             }
+            // Deletes the outputs of xmake and the stubs written for it, then
+            // asks xmake again.
+            "xmake-analyzer/clearCache" => {
+                xmake_ide::xmake_api::Stubs::reset();
+                self.project.db = ApiDb::builtin();
+                match probe::clear_cache() {
+                    Ok(dir) => {
+                        let dir = dir.map(|d| d.display().to_string()).unwrap_or_default();
+                        log::info!("deleted the cache {dir}");
+                        self.send(Response::new_ok(req.id, dir).into());
+                        self.start_jobs();
+                        self.publish_all();
+                    }
+                    Err(err) => {
+                        let message = format!("cannot delete the cache: {err}");
+                        self.send(
+                            Response::new_err(req.id, ErrorCode::InternalError as i32, message)
+                                .into(),
+                        );
+                    }
+                }
+            }
             _ => {
                 let message = format!("unknown request {}", req.method);
                 self.send(
@@ -284,7 +316,11 @@ impl Server {
             let xmake = self.config.xmake_path.clone();
             let tx = self.events_tx.clone();
             spawn("xmake-analyzer-probe", move || {
-                let _ = tx.send(Event::Probed(probe::probe(&xmake).map(Box::new)));
+                let step = |step: &str| {
+                    let _ = tx.send(Event::ProbeStep(step.to_owned()));
+                };
+                let probed = probe::probe(&xmake, &step);
+                let _ = tx.send(Event::Probed(probed.map(Box::new)));
             });
         }
     }
@@ -372,6 +408,7 @@ impl Server {
             || config.query_xmake != self.config.query_xmake;
         self.config = config;
         if !self.config.query_xmake {
+            xmake_ide::xmake_api::Stubs::reset();
             self.project.db = ApiDb::builtin();
             self.luajit = None;
         }
@@ -410,8 +447,66 @@ impl Server {
 
     // === Background jobs ===
 
+    /// Shows a step of the probe in the progress of the client.
+    fn probe_step(&mut self, step: String) {
+        use lsp_types::{
+            NumberOrString, ProgressParams, ProgressParamsValue, WorkDoneProgress,
+            WorkDoneProgressBegin, WorkDoneProgressReport,
+        };
+        log::info!("xmake: {step}");
+        if !self.work_done_progress {
+            return;
+        }
+        let value = match &self.probe_progress {
+            Some(_) => WorkDoneProgress::Report(WorkDoneProgressReport {
+                message: Some(step),
+                ..Default::default()
+            }),
+            None => {
+                let token = NumberOrString::String("xmake-analyzer/probe".to_owned());
+                self.next_request_id += 1;
+                let id = lsp_server::RequestId::from(self.next_request_id);
+                let params = lsp_types::WorkDoneProgressCreateParams { token: token.clone() };
+                self.send(
+                    Request::new(id, "window/workDoneProgress/create".to_owned(), params).into(),
+                );
+                self.probe_progress = Some(token);
+                WorkDoneProgress::Begin(WorkDoneProgressBegin {
+                    title: "xmake".to_owned(),
+                    message: Some(step),
+                    ..Default::default()
+                })
+            }
+        };
+        if let Some(token) = self.probe_progress.clone() {
+            self.notify::<lsp_types::notification::Progress>(ProgressParams {
+                token,
+                value: ProgressParamsValue::WorkDone(value),
+            });
+        }
+    }
+
+    /// Ends the progress of the probe.
+    fn probe_done(&mut self) {
+        use lsp_types::{
+            ProgressParams, ProgressParamsValue, WorkDoneProgress, WorkDoneProgressEnd,
+        };
+        if let Some(token) = self.probe_progress.take() {
+            self.notify::<lsp_types::notification::Progress>(ProgressParams {
+                token,
+                value: ProgressParamsValue::WorkDone(WorkDoneProgress::End(WorkDoneProgressEnd {
+                    message: None,
+                })),
+            });
+        }
+    }
+
     fn on_event(&mut self, event: Event) {
+        if matches!(event, Event::Probed(_)) {
+            self.probe_done();
+        }
         match event {
+            Event::ProbeStep(step) => self.probe_step(step),
             Event::Probed(Ok(probe)) => {
                 log::info!(
                     "using the API lists of xmake {} ({})",

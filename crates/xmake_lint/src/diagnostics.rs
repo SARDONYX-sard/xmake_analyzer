@@ -322,10 +322,10 @@ fn check_module_function<'a>(
 /// tools of xmake; a flag for another one is never given.
 fn check_tools<'a>(file: &'a AnalyzedFile, out: &mut Vec<Diagnostic<'a>>) {
     let mut check = |name: &'a str, range: TextRange| {
-        if xmake_api::TOOLS.contains(&name) {
+        if xmake_api::tools().iter().any(|(t, _)| *t == name) {
             return;
         }
-        let fix = crate::fuzzy::closest(name, xmake_api::TOOLS.iter().copied())
+        let fix = crate::fuzzy::closest(name, xmake_api::tools().iter().map(|(t, _)| *t))
             .map(|t| Fix::replace(range, t));
         out.push(Diagnostic {
             range,

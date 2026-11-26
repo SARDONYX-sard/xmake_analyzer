@@ -1,9 +1,6 @@
 ---@meta
 
---- The values xmake knows, from `xmake show -l ...`: generated, do not edit.
----@xmake.version 3.1.1
-
----@alias xmake.platform
+---@alias xmake.value.platform
 ---| "android"
 ---| "appletvos"
 ---| "applexros"
@@ -22,7 +19,7 @@
 ---| "watchos"
 ---| "windows"
 
----@alias xmake.arch
+---@alias xmake.value.arch
 ---| "arm"
 ---| "arm64"
 ---| "arm64-v8a"
@@ -53,7 +50,7 @@
 ---| "x86"
 ---| "x86_64"
 
----@alias xmake.mode
+---@alias xmake.value.mode
 ---| "asan"
 ---| "check"
 ---| "coverage"
@@ -68,7 +65,7 @@
 ---| "ubsan"
 ---| "valgrind"
 
----@alias xmake.rule
+---@alias xmake.value.rule
 ---| "android.native_app"
 ---| "ascendc"
 ---| "ascendc.build.aicpu"
@@ -251,7 +248,7 @@
 ---| "zig"
 ---| "zig.build"
 
----@alias xmake.policy
+---@alias xmake.value.policy
 ---| "build.across_targets_in_parallel" # Enable compile the source files for each target in parallel.
 ---| "build.always_update_configfiles" # Always update configfiles when building.
 ---| "build.c++.clang.fallbackscanner" # Force clang fallback module dependency scanner. (deprecated)
@@ -336,7 +333,7 @@
 ---| "windows.manifest.uac" # Enable windows manifest UAC.
 ---| "windows.manifest.uac.ui" # Enable ui access for windows UAC.
 
----@alias xmake.toolchain
+---@alias xmake.value.toolchain
 ---| "armcc" # ARM Compiler Version 5 of Keil MDK
 ---| "armclang" # ARM Compiler Version 6 of Keil MDK
 ---| "ascendc" # Huawei Ascend C (bisheng compiler driver)

@@ -26,6 +26,7 @@ USAGE:
     xmake_analyzer            Run the server over stdio.
     xmake_analyzer fmt ...    Format files, see `xmake_analyzer fmt --help`.
     xmake_analyzer lint ...   Check projects, see `xmake_analyzer lint --help`.
+    xmake_analyzer stubs ...  Write the stubs of an xmake, see `xmake_analyzer stubs --help`.
     xmake_analyzer --version  Print the version.
     xmake_analyzer --help     Print this help.
 
@@ -38,6 +39,7 @@ fn main() -> anyhow::Result<()> {
     match args.first().map(String::as_str) {
         Some("fmt") => std::process::exit(fmt::run(&args[1..])),
         Some("lint") => std::process::exit(lint::run(&args[1..])),
+        Some("stubs") => std::process::exit(probe::run_stubs_command(&args[1..])),
         _ => {}
     }
     if args.iter().any(|a| a == "--version" || a == "-V") {
@@ -53,6 +55,9 @@ fn main() -> anyhow::Result<()> {
         .target(env_logger::Target::Stderr)
         .init();
     log::info!("xmake_analyzer {} starting", env!("CARGO_PKG_VERSION"));
+    if xmake_ide::xmake_api::Stubs::builtin().functions().is_empty() {
+        log::error!("no stubs found: set XMAKE_ANALYZER_STUBS to their directory");
+    }
 
     let (connection, io_threads) = lsp_server::Connection::stdio();
     let (id, params) = connection.initialize_start()?;

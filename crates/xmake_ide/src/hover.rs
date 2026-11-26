@@ -865,7 +865,7 @@ fn string_hover(project: &Project, file: &AnalyzedFile, token: SyntaxToken<'_>) 
         ArgValues::Fixed(list) => list.iter().find(|(v, _)| *v == value).map(|(_, d)| *d)?,
         ArgValues::Policies => &known.policies.iter().find(|p| p.name == value)?.description,
         ArgValues::Toolchains => &known.toolchains.iter().find(|t| t.name == value)?.description,
-        ArgValues::Configs => xmake_api::BUILTIN_CONFIGS.iter().find(|(n, _)| *n == value)?.1,
+        ArgValues::Configs => xmake_api::builtin_configs().iter().find(|(n, _)| *n == value)?.1,
         _ => return None,
     };
     Some(format!("```lua\n\"{value}\"\n```\n\n---\n\n{doc}"))

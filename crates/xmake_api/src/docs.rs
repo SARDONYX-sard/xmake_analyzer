@@ -9,43 +9,53 @@ use std::fmt::Write as _;
 
 use crate::{ApiKind, Function, Instance, Scope, Stubs};
 
-/// The owners of `name` to look in, best first: the class of `scope`, the
-/// root, the globals, then every scope.
-fn owners(scope: Option<Scope>) -> Vec<String> {
-    let class = |s: Scope| crate::render::scope_class(s);
-    let mut out: Vec<String> = Vec::new();
+/// The stubs of `name` to look in, best first: the APIs of `scope` and of
+/// the scopes visible from it, the globals, then every scope.
+fn candidates(scope: Option<Scope>, name: &str) -> Vec<&'static Function> {
+    let stubs = Stubs::get();
+    let named: Vec<&'static Function> =
+        stubs.functions().iter().filter(|f| f.name == name).collect();
+    let of_scope =
+        |s: Scope| named.iter().copied().filter(move |f| f.scope.is_some_and(|(x, _)| x == s));
+    let globals = || named.iter().copied().filter(|f| f.owner == crate::GLOBALS);
+    let mut out: Vec<&'static Function> = Vec::new();
     match scope {
         Some(scope) => {
-            out.extend(scope.visible_scopes().iter().map(|&s| class(s)));
-            out.push(crate::GLOBALS.to_owned());
+            for &s in scope.visible_scopes() {
+                out.extend(of_scope(s));
+            }
+            out.extend(globals());
         }
         None => {
-            out.push(crate::GLOBALS.to_owned());
-            out.push(class(Scope::Root));
-            out.push(class(Scope::Target));
+            out.extend(globals());
+            out.extend(of_scope(Scope::Root));
+            out.extend(of_scope(Scope::Target));
         }
     }
-    out.extend(std::iter::once(Scope::Root).chain(Scope::NAMED).map(class));
+    out.extend(named.iter().copied().filter(|f| f.scope.is_some()));
     out
 }
 
-/// The first stub of `name` among [`owners`] for which `has` holds.
+/// The first stub of `name` among [`candidates`] for which `has` holds.
 fn lookup(
     scope: Option<Scope>,
     name: &str,
     has: impl Fn(&Function) -> bool,
 ) -> Option<&'static Function> {
-    let stubs = Stubs::get();
-    owners(scope).iter().find_map(|owner| stubs.find(owner, name).filter(|f| has(f)))
+    candidates(scope, name).into_iter().find(|f| has(f))
 }
 
 /// The page of a description API or a script function, in `scope` when
-/// given: `xmake.option` overrides `xmake.api` in an option.
+/// given: the documentation of the API in `scope`, else the shared one
+/// (`xmake.api`), else that of a global.
 pub fn api_doc(scope: Option<Scope>, name: &str) -> Option<&'static str> {
     let stubs = Stubs::get();
     let documented = |f: &&Function| !f.doc.is_empty();
-    let scoped = scope
-        .and_then(|scope| stubs.find(&crate::render::scope_class(scope), name).filter(documented));
+    let scoped = scope.and_then(|scope| {
+        stubs.functions().iter().find(|f| {
+            f.name == name && f.scope.is_some_and(|(s, _)| s == scope) && !f.doc.is_empty()
+        })
+    });
     let function = scoped
         .or_else(|| stubs.find("xmake.api", name).filter(documented))
         .or_else(|| stubs.find(crate::stubs::GLOBALS, name).filter(documented))?;
@@ -70,15 +80,17 @@ pub fn doc_link(scope: Option<Scope>, name: &str) -> Option<String> {
     lookup(scope, name, |f| f.see.is_some()).and_then(|f| f.see).map(str::to_owned)
 }
 
-/// The prototype of `name` in the manual (`@xmake.prototype` of its stub),
+/// The prototype of `name` (the parameters of its stub, in the notation of
+/// the manual),
 /// `set_default(default: boolean)`, with its documented parameters
-/// `(name, description)` (`@xmake.param`).
+/// `(name, description)`.
 pub fn doc_prototype(
     scope: Option<Scope>,
     name: &str,
 ) -> Option<(&'static str, Vec<(&'static str, &'static str)>)> {
     let function = lookup(scope, name, |f| f.prototype.is_some())?;
-    Some((function.prototype?, function.prototype_params.clone()))
+    let params = function.params.iter().map(|p| (p.name, p.doc)).collect();
+    Some((function.prototype?, params))
 }
 
 /// The parameters of a prototype: `["files: string|array", "...", "{defines, ...}"]`.
@@ -214,7 +226,7 @@ mod tests {
             [
                 "files: string|array",
                 "...",
-                "{defines, languages, includedirs, rules, force, sourcekind, $flags}"
+                "{defines, languages, includedirs, rules, force, sourcekind, flags}"
             ]
         );
         assert_eq!(

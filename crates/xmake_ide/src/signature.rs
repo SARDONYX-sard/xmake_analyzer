@@ -250,7 +250,7 @@ mod tests {
     #[test]
     fn signatures() {
         // The prototypes of the manual: the second file is the `...`.
-        let files = "add_files(files: string|any[], ..., {defines, languages, includedirs, rules, force, sourcekind, $flags})";
+        let files = "add_files(files: string|any[], ..., {defines, languages, includedirs, rules, force, sourcekind, flags})";
         assert_eq!(
             help(
                 "target('a')

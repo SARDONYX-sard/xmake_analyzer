@@ -1,0 +1,334 @@
+---@meta
+
+---@alias xmake.value.kind
+---| "binary" # An executable program.
+---| "static" # A static library.
+---| "shared" # A shared (dynamic) library.
+---| "object" # Object files only, no link.
+---| "headeronly" # A header only library.
+---| "moduleonly" # A C++20 module only library.
+---| "phony" # No output: groups dependencies.
+
+---@alias xmake.value.language
+---| "ansi" # ANSI C
+---| "c89" # C89
+---| "c90" # C90
+---| "c99" # C99
+---| "c11" # C11
+---| "c17" # C17
+---| "c23" # C23
+---| "clatest" # The latest C standard supported by the compiler.
+---| "gnu89" # C89 with GNU extensions
+---| "gnu99" # C99 with GNU extensions
+---| "gnu11" # C11 with GNU extensions
+---| "gnu17" # C17 with GNU extensions
+---| "gnu23" # C23 with GNU extensions
+---| "gnulatest" # The latest C standard with GNU extensions.
+---| "cxx98" # C++98
+---| "cxx03" # C++03
+---| "cxx11" # C++11
+---| "cxx14" # C++14
+---| "cxx17" # C++17
+---| "cxx20" # C++20
+---| "cxx23" # C++23
+---| "cxx26" # C++26
+---| "cxxlatest" # The latest C++ standard supported by the compiler.
+---| "c++11" # C++11
+---| "c++14" # C++14
+---| "c++17" # C++17
+---| "c++20" # C++20
+---| "c++23" # C++23
+---| "c++26" # C++26
+---| "c++latest" # The latest C++ standard supported by the compiler.
+---| "gnuxx11" # C++11 with GNU extensions
+---| "gnuxx14" # C++14 with GNU extensions
+---| "gnuxx17" # C++17 with GNU extensions
+---| "gnuxx20" # C++20 with GNU extensions
+---| "gnuxx23" # C++23 with GNU extensions
+---| "gnuxxlatest" # The latest C++ standard with GNU extensions.
+
+---@alias xmake.value.warning
+---| "none" # Disable all warnings.
+---| "less" # Enable fewer warnings.
+---| "more" # Enable more warnings.
+---| "extra" # Enable extra warnings.
+---| "all" # Enable all warnings.
+---| "allextra" # Enable all and extra warnings.
+---| "everything" # Enable every warning the compiler has.
+---| "pedantic" # Enable pedantic warnings.
+---| "error" # Treat warnings as errors.
+
+---@alias xmake.value.optimize
+---| "none" # No optimization.
+---| "fast" # Fast optimization.
+---| "faster" # Faster optimization.
+---| "fastest" # Fastest optimization.
+---| "smallest" # Optimize for size.
+---| "aggressive" # Aggressive, possibly unsafe, optimization.
+
+---@alias xmake.value.symbol
+---| "debug" # Generate debug symbols.
+---| "hidden" # Hide exported symbols by default.
+---| "none" # No debug symbols.
+---| "edit" # Debug symbols for edit and continue (MSVC).
+---| "embed" # Embed debug symbols in object files (MSVC).
+
+---@alias xmake.value.strip
+---| "none" # Do not strip.
+---| "debug" # Strip debug symbols.
+---| "all" # Strip all symbols.
+
+---@alias xmake.value.fpmodel
+---| "fast" # Fast floating point.
+---| "strict" # Strict floating point.
+---| "except" # Floating point exceptions.
+---| "precise" # Precise floating point.
+
+---@alias xmake.value.runtime
+---| "MT" # MSVC static runtime.
+---| "MTd" # MSVC static debug runtime.
+---| "MD" # MSVC dynamic runtime.
+---| "MDd" # MSVC dynamic debug runtime.
+---| "c++_static" # LLVM libc++, static.
+---| "c++_shared" # LLVM libc++, shared.
+---| "stdc++_static" # GNU libstdc++, static.
+---| "stdc++_shared" # GNU libstdc++, shared.
+
+---@alias xmake.value.exception
+---| "cxx" # Enable C++ exceptions.
+---| "objc" # Enable Objective-C exceptions.
+---| "no-cxx" # Disable C++ exceptions.
+---| "no-objc" # Disable Objective-C exceptions.
+---| "none" # Disable exceptions.
+
+---@alias xmake.value.encoding
+---| "utf-8" # UTF-8 for source and execution.
+---| "source.utf-8" # UTF-8 source files.
+---| "target.utf-8" # UTF-8 execution character set.
+---| "gb2312" # GB2312
+
+---@alias xmake.value.category
+---| "task" # A plain task (default).
+---| "action" # A builtin action, like `build`.
+---| "plugin" # A plugin, shown by `xmake --help`.
+---| "main" # The main menu.
+
+---@alias xmake.value.config
+---| "plat" # The target platform (`xmake f -p`).
+---| "arch" # The target architecture (`xmake f -a`).
+---| "mode" # The build mode (`xmake f -m`).
+---| "kind" # The default kind of targets (`xmake f -k`).
+---| "toolchain" # The toolchain (`xmake f --toolchain`).
+---| "buildir" # The build directory (`xmake f -o`).
+---| "builddir" # The build directory (`xmake f -o`).
+---| "host" # The host system.
+---| "cc" # The C compiler.
+---| "cxx" # The C++ compiler.
+---| "ld" # The linker.
+---| "sh" # The shared library linker.
+---| "ar" # The static library archiver.
+---| "sdk" # The SDK directory (`xmake f --sdk`).
+---| "vs" # The Visual Studio version (`xmake f --vs`).
+---| "vs_toolset" # The Visual Studio toolset version.
+---| "vs_sdkver" # The Windows SDK version.
+---| "runtimes" # The C/C++ runtimes (`xmake f --runtimes`).
+---| "policies" # The build policies (`xmake f --policies`).
+---| "ccache" # Whether ccache is enabled.
+---| "require" # A configuration of `xmake f --require`.
+---| "pkg_searchdirs" # A configuration of `xmake f --pkg_searchdirs`.
+---| "cross" # A configuration of `xmake f --cross`.
+---| "target_os" # A configuration of `xmake f --target_os`.
+---| "bin" # A configuration of `xmake f --bin`.
+---| "toolchain_host" # A configuration of `xmake f --toolchain_host`.
+---| "ascflags" # A configuration of `xmake f --ascflags`.
+---| "aicpuflags" # A configuration of `xmake f --aicpuflags`.
+---| "ldflags" # A configuration of `xmake f --ldflags`.
+---| "arflags" # A configuration of `xmake f --arflags`.
+---| "shflags" # A configuration of `xmake f --shflags`.
+---| "links" # A configuration of `xmake f --links`.
+---| "syslinks" # A configuration of `xmake f --syslinks`.
+---| "linkdirs" # A configuration of `xmake f --linkdirs`.
+---| "includedirs" # A configuration of `xmake f --includedirs`.
+---| "pc" # A configuration of `xmake f --pc`.
+---| "pcld" # A configuration of `xmake f --pcld`.
+---| "pcsh" # A configuration of `xmake f --pcsh`.
+---| "as" # A configuration of `xmake f --as`.
+---| "asflags" # A configuration of `xmake f --asflags`.
+---| "zc" # A configuration of `xmake f --zc`.
+---| "zcld" # A configuration of `xmake f --zcld`.
+---| "zcar" # A configuration of `xmake f --zcar`.
+---| "zcsh" # A configuration of `xmake f --zcsh`.
+---| "cpp" # A configuration of `xmake f --cpp`.
+---| "ranlib" # A configuration of `xmake f --ranlib`.
+---| "cxflags" # A configuration of `xmake f --cxflags`.
+---| "cxxflags" # A configuration of `xmake f --cxxflags`.
+---| "frameworks" # A configuration of `xmake f --frameworks`.
+---| "frameworkdirs" # A configuration of `xmake f --frameworkdirs`.
+---| "dc" # A configuration of `xmake f --dc`.
+---| "dcld" # A configuration of `xmake f --dcld`.
+---| "dcar" # A configuration of `xmake f --dcar`.
+---| "dcsh" # A configuration of `xmake f --dcsh`.
+---| "sc" # A configuration of `xmake f --sc`.
+---| "scld" # A configuration of `xmake f --scld`.
+---| "scsh" # A configuration of `xmake f --scsh`.
+---| "scar" # A configuration of `xmake f --scar`.
+---| "mm" # A configuration of `xmake f --mm`.
+---| "mxx" # A configuration of `xmake f --mxx`.
+---| "mflags" # A configuration of `xmake f --mflags`.
+---| "mxflags" # A configuration of `xmake f --mxflags`.
+---| "mxxflags" # A configuration of `xmake f --mxxflags`.
+---| "cu" # A configuration of `xmake f --cu`.
+---| "cu-ccbin" # A configuration of `xmake f --cu-ccbin`.
+---| "culd" # A configuration of `xmake f --culd`.
+---| "cuflags" # A configuration of `xmake f --cuflags`.
+---| "culdflags" # A configuration of `xmake f --culdflags`.
+---| "cs" # A configuration of `xmake f --cs`.
+---| "csflags" # A configuration of `xmake f --csflags`.
+---| "mrc" # A configuration of `xmake f --mrc`.
+---| "mrcflags" # A configuration of `xmake f --mrcflags`.
+---| "fc" # A configuration of `xmake f --fc`.
+---| "fcld" # A configuration of `xmake f --fcld`.
+---| "fcsh" # A configuration of `xmake f --fcsh`.
+---| "go" # A configuration of `xmake f --go`.
+---| "gcld" # A configuration of `xmake f --gcld`.
+---| "go-ar" # A configuration of `xmake f --go-ar`.
+---| "cflags" # A configuration of `xmake f --cflags`.
+---| "nc" # A configuration of `xmake f --nc`.
+---| "ncld" # A configuration of `xmake f --ncld`.
+---| "ncar" # A configuration of `xmake f --ncar`.
+---| "ncsh" # A configuration of `xmake f --ncsh`.
+---| "rc" # A configuration of `xmake f --rc`.
+---| "rcld" # A configuration of `xmake f --rcld`.
+---| "rcar" # A configuration of `xmake f --rcar`.
+---| "rcsh" # A configuration of `xmake f --rcsh`.
+---| "kc" # A configuration of `xmake f --kc`.
+---| "kcld" # A configuration of `xmake f --kcld`.
+---| "kcar" # A configuration of `xmake f --kcar`.
+---| "kcsh" # A configuration of `xmake f --kcsh`.
+---| "ndk" # A configuration of `xmake f --ndk`.
+---| "ndk_sdkver" # A configuration of `xmake f --ndk_sdkver`.
+---| "android_sdk" # A configuration of `xmake f --android_sdk`.
+---| "build_toolver" # A configuration of `xmake f --build_toolver`.
+---| "ndk_stdcxx" # A configuration of `xmake f --ndk_stdcxx`.
+---| "ndk_cxxstl" # A configuration of `xmake f --ndk_cxxstl`.
+---| "cuda" # A configuration of `xmake f --cuda`.
+---| "cuda_sdkver" # A configuration of `xmake f --cuda_sdkver`.
+---| "qt" # A configuration of `xmake f --qt`.
+---| "qt_host" # A configuration of `xmake f --qt_host`.
+---| "qt_sdkver" # A configuration of `xmake f --qt_sdkver`.
+---| "vcpkg" # A configuration of `xmake f --vcpkg`.
+---| "mingw" # A configuration of `xmake f --mingw`.
+---| "emsdk" # A configuration of `xmake f --emsdk`.
+---| "vs_runtime" # A configuration of `xmake f --vs_runtime`.
+---| "wdk" # A configuration of `xmake f --wdk`.
+---| "wdk_sdkver" # A configuration of `xmake f --wdk_sdkver`.
+---| "wdk_winver" # A configuration of `xmake f --wdk_winver`.
+---| "debugger" # A configuration of `xmake f --debugger`.
+---| "ccachedir" # A configuration of `xmake f --ccachedir`.
+---| "trybuild" # A configuration of `xmake f --trybuild`.
+---| "tryconfigs" # A configuration of `xmake f --tryconfigs`.
+---| "xcode" # A configuration of `xmake f --xcode`.
+---| "xcode_sdkver" # A configuration of `xmake f --xcode_sdkver`.
+---| "xcode_bundle_identifier" # A configuration of `xmake f --xcode_bundle_identifier`.
+---| "xcode_codesign_identity" # A configuration of `xmake f --xcode_codesign_identity`.
+---| "xcode_mobile_provision" # A configuration of `xmake f --xcode_mobile_provision`.
+---| "target_minver" # A configuration of `xmake f --target_minver`.
+---| "appledev" # A configuration of `xmake f --appledev`.
+---| "xcode_sysroot" # A configuration of `xmake f --xcode_sysroot`.
+
+---@alias xmake.value.tool
+---| "ar"
+---| "ar2000"
+---| "ar6x"
+---| "armar"
+---| "armasm"
+---| "armasm64_msvc"
+---| "armasm_msvc"
+---| "armcc"
+---| "armclang"
+---| "armlink"
+---| "bisheng"
+---| "bl51"
+---| "c51"
+---| "cc"
+---| "circle"
+---| "cl"
+---| "cl2000"
+---| "cl6x"
+---| "cl_json"
+---| "clang"
+---| "clang_cl"
+---| "clangxx"
+---| "cosmoar"
+---| "cosmocc"
+---| "cosmocxx"
+---| "cparser"
+---| "cxx"
+---| "dmd"
+---| "dotnet"
+---| "dpcpp"
+---| "emar"
+---| "emcc"
+---| "emxx"
+---| "fasm"
+---| "filcc"
+---| "filxx"
+---| "flang"
+---| "fpc"
+---| "gcc"
+---| "gcc_ar"
+---| "gccgo"
+---| "gdc"
+---| "gfortran"
+---| "go"
+---| "gxx"
+---| "iarchive"
+---| "icc"
+---| "iccarm"
+---| "icl"
+---| "icpc"
+---| "icpx"
+---| "icx"
+---| "icx_cc"
+---| "ifort"
+---| "ifx"
+---| "ilinkarm"
+---| "kotlinc_native"
+---| "ld"
+---| "ld64_lld"
+---| "ld_lld"
+---| "ldc2"
+---| "link"
+---| "lld_link"
+---| "llvm_ar"
+---| "llvm_rc"
+---| "ml"
+---| "ml64"
+---| "mold"
+---| "nasm"
+---| "nim"
+---| "nvc"
+---| "nvcc"
+---| "nvcxx"
+---| "nvfortran"
+---| "rc"
+---| "rustc"
+---| "sdar"
+---| "sdasstm8"
+---| "sdcc"
+---| "swift_frontend"
+---| "swiftc"
+---| "tcc"
+---| "windres"
+---| "yasm"
+---| "zig"
+---| "zig_cc"
+---| "zig_cxx"
+
+---@alias xmake.value.target string
+
+---@alias xmake.value.option string
+
+---@alias xmake.value.package string
+
+---@alias xmake.value.module string

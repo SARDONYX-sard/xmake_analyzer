@@ -57,6 +57,11 @@ impl fmt::Display for OverlayError {
 
 impl std::error::Error for OverlayError {}
 
+/// Description functions registered by the interpreter itself, which
+/// `xmake show` does not list.
+const EXTRA_DESCRIPTION_FUNCTIONS: [&str; 4] =
+    ["add_subdirs", "add_subfiles", "namespace", "namespace_end"];
+
 /// The output of `xmake show -l apis --json`. Missing keys keep the builtin
 /// table.
 #[derive(Deserialize)]
@@ -135,11 +140,16 @@ impl ApiDb {
         }
         if let Some(names) = &show.description_builtin_apis {
             let root: Vec<&str> = self.scope_apis(Scope::Root).iter().map(|a| &*a.name).collect();
-            let functions = names
+            let mut functions = names
                 .iter()
-                .filter(|n| !root.contains(&&***n))
+                .map(|n| &**n)
+                // Registered by the interpreter itself, not listed.
+                .chain(EXTRA_DESCRIPTION_FUNCTIONS)
+                .filter(|n| !root.contains(n))
                 .map(|n| reuse(&self.description_functions, n))
                 .collect::<Vec<_>>();
+            functions.sort_unstable();
+            functions.dedup();
             self.description_functions = Cow::Owned(functions);
         }
         if let Some(names) = &show.description_builtin_module_apis {
@@ -162,6 +172,53 @@ impl ApiDb {
             apis.dedup();
             self.extension_apis = Cow::Owned(apis);
         }
+        Ok(())
+    }
+
+    /// Sets the kinds of the scope APIs from the output of `dump_scopes.lua`
+    /// (`{"scopes": {"target": {"values": ["target.set_kind", ...]}}}`), which
+    /// `xmake show` does not print; the APIs it lists only are added.
+    pub fn apply_scope_kinds(&mut self, json: &str) -> Result<(), OverlayError> {
+        /// The names of a scope by kind.
+        type ByKind<'a> = BTreeMap<Cow<'a, str>, Vec<Cow<'a, str>>>;
+        #[derive(Deserialize)]
+        struct Dump<'a> {
+            #[serde(borrow)]
+            scopes: BTreeMap<Cow<'a, str>, ByKind<'a>>,
+        }
+        let dump: Dump<'_> = serde_json::from_str(json).map_err(OverlayError)?;
+        let mut kinds: BTreeMap<(Scope, &str), ApiKind> = BTreeMap::new();
+        for (owner, by_kind) in &dump.scopes {
+            for (kind, names) in by_kind {
+                let Some(kind) = ApiKind::parse(kind) else {
+                    continue;
+                };
+                for full in names {
+                    let (scope, name) = full.rsplit_once('.').unwrap_or(("", full));
+                    let scope = if owner == "root" || scope.is_empty() { "root" } else { scope };
+                    let scope = std::iter::once(Scope::Root)
+                        .chain(Scope::NAMED)
+                        .find(|s| s.name() == scope);
+                    if let Some(scope) = scope {
+                        kinds.insert((scope, name), kind);
+                    }
+                }
+            }
+        }
+        let mut apis = self.scope_apis.to_vec();
+        for api in &mut apis {
+            if let Some(&kind) = kinds.get(&(api.scope, &*api.name)) {
+                api.kind = kind;
+            }
+        }
+        for (&(scope, name), &kind) in &kinds {
+            if self.scope_api(scope, name).is_none() {
+                apis.push(ScopeApi { scope, name: Cow::Owned(name.to_owned()), kind });
+            }
+        }
+        apis.sort_unstable_by(|a, b| (a.scope, &a.name).cmp(&(b.scope, &b.name)));
+        apis.dedup_by(|a, b| a.scope == b.scope && a.name == b.name);
+        self.scope_apis = Cow::Owned(apis);
         Ok(())
     }
 

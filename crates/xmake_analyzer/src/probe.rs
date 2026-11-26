@@ -1,7 +1,9 @@
-//! Asking the installed xmake for its version, Lua runtime and API lists.
+//! Asking the installed xmake for its version, Lua runtime and API lists,
+//! and writing the stubs of that xmake (see [`xmake_ide::xmake_api::Stubs`]).
 //!
 //! Running xmake takes about a second per command, so the outputs are cached
-//! on disk per xmake build: later starts only run `xmake --version`.
+//! on disk per xmake build, with the stubs written for it: later starts only
+//! run `xmake --version`.
 
 use std::{
     ffi::OsStr,
@@ -9,15 +11,28 @@ use std::{
     process::{Command, Stdio},
 };
 
-use xmake_ide::xmake_api::{ApiDb, ListKind, Version};
+use xmake_ide::xmake_api::{ApiDb, ListKind, Stubs, Version, render};
 
 /// What the installed xmake told.
 pub(crate) struct Probe {
     pub(crate) version: Version,
     pub(crate) luajit: bool,
+    /// The database of the stubs written for this xmake, now in use.
+    pub(crate) db: ApiDb,
+}
+
+/// The lists of an xmake.
+pub(crate) struct Lists {
+    pub(crate) version: Version,
+    /// `v3.1.2+HEAD.5d21e9daf`
+    pub(crate) build: String,
+    pub(crate) luajit: bool,
     /// The builtin database updated with the lists of this xmake.
     pub(crate) db: ApiDb,
 }
+
+/// Prints the description APIs of each scope with their kinds.
+const DUMP_SCOPES_SCRIPT: &str = include_str!("dump_scopes.lua");
 
 /// Prints the Lua runtime of xmake.
 const RUNTIME_SCRIPT: &str = r#"function main()
@@ -25,12 +40,82 @@ const RUNTIME_SCRIPT: &str = r#"function main()
 end
 "#;
 
-/// Runs xmake, or returns why it failed.
-pub(crate) fn probe(xmake: &Path) -> Result<Probe, String> {
+/// Runs xmake, writes its stubs (once per xmake build and version of this
+/// server) and uses them, or returns why it failed. `progress` hears of each
+/// step: generating takes some seconds.
+pub(crate) fn probe(xmake: &Path, progress: &dyn Fn(&str)) -> Result<Probe, String> {
+    let lists = lists(xmake, progress)?;
+    let dir = cache_dir().map(|d| {
+        d.join(sanitize(&lists.build))
+            .join(format!("stubs-{}", env!("CARGO_PKG_VERSION")))
+            .join(lists.version.to_string())
+    });
+    let stubs = dir.and_then(|dir| match stubs_in(&dir, &lists.db, progress) {
+        Ok(stubs) => Some(stubs),
+        Err(err) => {
+            log::warn!(
+                "cannot write the stubs of xmake {} to {}: {err}",
+                lists.build,
+                dir.display()
+            );
+            None
+        }
+    });
+    let db = match stubs {
+        Some(stubs) => {
+            let dir = stubs.dir().map(|d| d.display().to_string()).unwrap_or_default();
+            log::info!("stubs of xmake {} in {dir}", lists.build);
+            ApiDb::from_stubs(Stubs::install(stubs))
+        }
+        // No stubs on the disk: the lists still hold.
+        None => lists.db,
+    };
+    Ok(Probe { version: lists.version, luajit: lists.luajit, db })
+}
+
+/// The stubs of `db` in `dir`, written there first when missing.
+fn stubs_in(dir: &Path, db: &ApiDb, progress: &dyn Fn(&str)) -> std::io::Result<Stubs> {
+    if !dir.join(render::VALUES_FILE).is_file() {
+        progress("writing the stubs");
+        write_stubs(dir, &render::update(Stubs::builtin(), db, None))?;
+    }
+    Stubs::read_dir(dir)
+}
+
+/// Writes `files` (`(path, text)`, `path` relative with `/`) to `dir`,
+/// replacing what it held.
+pub(crate) fn write_stubs(dir: &Path, files: &[(String, String)]) -> std::io::Result<()> {
+    if dir.exists() {
+        std::fs::remove_dir_all(dir)?;
+    }
+    for (path, text) in files {
+        let path = dir.join(path);
+        if let Some(parent) = path.parent() {
+            std::fs::create_dir_all(parent)?;
+        }
+        std::fs::write(path, text)?;
+    }
+    Ok(())
+}
+
+/// Deletes the cache: the outputs of xmake and the stubs written for it.
+pub(crate) fn clear_cache() -> std::io::Result<Option<PathBuf>> {
+    let Some(dir) = cache_dir() else {
+        return Ok(None);
+    };
+    if dir.exists() {
+        std::fs::remove_dir_all(&dir)?;
+    }
+    Ok(Some(dir))
+}
+
+/// Runs xmake for its lists, or returns why it failed.
+pub(crate) fn lists(xmake: &Path, progress: &dyn Fn(&str)) -> Result<Lists, String> {
     let work_dir = std::env::temp_dir().join("xmake_analyzer_probe");
     std::fs::create_dir_all(&work_dir)
         .map_err(|e| format!("cannot create {}: {e}", work_dir.display()))?;
 
+    progress("xmake --version");
     let banner = run(xmake, ["--version"], &work_dir)?;
     let build =
         banner.split_whitespace().find(|w| w.starts_with('v')).map(|w| w.trim_end_matches(','));
@@ -65,14 +150,30 @@ pub(crate) fn probe(xmake: &Path) -> Result<Probe, String> {
 
     let mut db = ApiDb::builtin();
     db.version = Some(version);
-    let apis =
-        cached("apis.json", &|| run_json(xmake, &["show", "-l", "apis", "--json"], &work_dir))?;
+    let apis = cached("apis.json", &|| {
+        progress("xmake show -l apis");
+        run_json(xmake, &["show", "-l", "apis", "--json"], &work_dir)
+    })?;
     if let Err(err) = db.apply_show_apis(&apis) {
         log::warn!("xmake show -l apis: {err}");
+    }
+    let scopes = cached("scopes.json", &|| {
+        progress("the description scopes");
+        let script = work_dir.join("dump_scopes.lua");
+        std::fs::write(&script, DUMP_SCOPES_SCRIPT).map_err(|e| e.to_string())?;
+        let mut out = run(xmake, [OsStr::new("l"), script.as_os_str()], &work_dir)?;
+        let start = out.find('{').ok_or("no JSON from dump_scopes.lua")?;
+        out.drain(..start);
+        Ok(out)
+    });
+    match scopes.map(|json| db.apply_scope_kinds(&json).map_err(|e| e.to_string())) {
+        Ok(Ok(())) => {}
+        Ok(Err(err)) | Err(err) => log::warn!("the kinds of the scope APIs: {err}"),
     }
     for kind in ListKind::ALL {
         let name = kind.show_name();
         let json = cached(&format!("{name}.json"), &|| {
+            progress(&format!("xmake show -l {name}"));
             run_json(xmake, &["show", "-l", name, "--json"], &work_dir)
         });
         match json.map(|json| db.apply_list(kind, &json).map_err(|e| e.to_string())) {
@@ -80,7 +181,7 @@ pub(crate) fn probe(xmake: &Path) -> Result<Probe, String> {
             Ok(Err(err)) | Err(err) => log::warn!("xmake show -l {name}: {err}"),
         }
     }
-    Ok(Probe { version, luajit, db })
+    Ok(Lists { version, build: build.to_owned(), luajit, db })
 }
 
 /// Runs `xmake args` and returns its standard output.
@@ -138,6 +239,79 @@ fn sanitize(build: &str) -> String {
         .chars()
         .map(|c| if c.is_ascii_alphanumeric() || c == '.' || c == '-' { c } else { '_' })
         .collect()
+}
+
+const STUBS_USAGE: &str =
+    "xmake_analyzer stubs: writes the stubs of an xmake, from the embedded ones.
+
+USAGE:
+    xmake_analyzer stubs [--xmake PATH] [--manual FILE] [--out DIR]
+    xmake_analyzer stubs --clean
+
+    --xmake PATH   The xmake to read the lists from (default: xmake).
+    --manual FILE  The sections of the manual, from `tools/gen_doc_links.py`:
+                   replaces the prototypes and links of the stubs.
+    --out DIR      Where to write them (default: crates/xmake_api/stubs/<version>).
+    --clean        Delete the cache of the server: the outputs of xmake and the
+                   stubs written for each xmake.
+
+The documentation and types of the shipped stubs are kept; the functions the
+xmake lists are added or tagged, those it lacks removed.";
+
+/// `xmake_analyzer stubs`: returns the exit code.
+#[allow(clippy::print_stdout, clippy::print_stderr)]
+pub(crate) fn run_stubs_command(args: &[String]) -> i32 {
+    if args.iter().any(|a| a == "--help" || a == "-h") {
+        println!("{STUBS_USAGE}");
+        return 0;
+    }
+    if args.iter().any(|a| a == "--clean") {
+        return match clear_cache() {
+            Ok(Some(dir)) => {
+                println!("deleted {}", dir.display());
+                0
+            }
+            Ok(None) => 0,
+            Err(err) => {
+                eprintln!("error: cannot delete the cache: {err}");
+                1
+            }
+        };
+    }
+    let option = |name: &str| args.iter().position(|a| a == name).and_then(|i| args.get(i + 1));
+    let xmake = option("--xmake").map_or_else(|| PathBuf::from("xmake"), PathBuf::from);
+    let lists = match lists(&xmake, &|step| eprintln!("{step}")) {
+        Ok(lists) => lists,
+        Err(err) => {
+            eprintln!("error: {err}");
+            return 1;
+        }
+    };
+    let manual = match option("--manual").map(std::fs::read_to_string) {
+        None => None,
+        Some(Ok(json)) => match render::Manual::from_json(&json) {
+            Ok(manual) => Some(manual),
+            Err(err) => {
+                eprintln!("error: invalid manual: {err}");
+                return 1;
+            }
+        },
+        Some(Err(err)) => {
+            eprintln!("error: cannot read the manual: {err}");
+            return 1;
+        }
+    };
+    let out = option("--out").map_or_else(
+        || PathBuf::from("crates/xmake_api/stubs").join(lists.version.to_string()),
+        PathBuf::from,
+    );
+    let files = render::update(Stubs::builtin(), &lists.db, manual.as_ref());
+    if let Err(err) = write_stubs(&out, &files) {
+        eprintln!("error: cannot write {}: {err}", out.display());
+        return 1;
+    }
+    println!("wrote the stubs of xmake {} to {}", lists.build, out.display());
+    0
 }
 
 #[cfg(test)]

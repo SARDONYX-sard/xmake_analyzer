@@ -394,8 +394,11 @@ fn names<'a>(project: &'a Project, file: &'a AnalyzedFile, out: &mut Vec<Diagnos
     let options = defined(Scope::Option);
 
     // `has_config` and friends also read the configurations of `xmake f`.
-    let configs: Vec<&str> =
-        options.iter().copied().chain(xmake_api::BUILTIN_CONFIGS.iter().map(|(n, _)| *n)).collect();
+    let configs: Vec<&str> = options
+        .iter()
+        .copied()
+        .chain(xmake_api::builtin_configs().iter().map(|(n, _)| *n))
+        .collect();
     let checks: [(&[&str], &'static str, &str, Vec<&str>); 4] = [
         (
             &["add_rules", "set_rules"],

@@ -1,5 +1,6 @@
-//! Typed stubs of the script APIs, written as Lua with LuaCATS annotations
-//! in `stubs/*.lua`:
+//! The xmake APIs, written as Lua with LuaCATS annotations: the stubs
+//! shipped with the server under `stubs/<xmake version>/`, read from the disk
+//! so that editors open them on go-to-definition.
 //!
 //! ```lua
 //! --- Copies files or directories.
@@ -9,28 +10,23 @@
 //! ---@param src string The files, globs allowed.
 //! ---@param opt? {rootdir?: string}
 //! ---@return boolean ok
+//! ---@see https://xmake.io/api/scripts/builtin-modules/os.html#os-cp
 //! function os.cp(src, dst, opt) end
 //! ```
 //!
-//! Supported annotations: `@class`, `@param`, `@return`, `@overload` (the
-//! signature of a callable module such as `lib.detect.find_tool`), `@see`
-//! (the section of the manual), `@alias` with `---| "value" # description`
-//! lines (the values xmake knows: platforms, policies, ...). The other comment
-//! lines are the Markdown documentation.
+//! Only standard annotations are used: `@class`, `@field`, `@param`,
+//! `@return`, `@overload` (a callable module, `lib.detect.find_tool`), `@see`
+//! (the manual), `@alias` with `---| "value" # description` lines. Where a
+//! function exists follows from its file:
 //!
-//! The functions xmake lists carry tags telling where they exist, from which
-//! [`crate::ApiDb`] is built:
-//!
-//! - `@xmake.kind values`: an API of the description scope of its class
-//!   (`xmake.target`, ...), of that kind;
-//! - `@xmake.context description script instance import`: a global function
-//!   or a module function of the description or the script context, a method
-//!   of an instance (`target:name()`), a function of an importable module;
-//! - `@xmake.prototype set_kind(kind: string)`: the prototype of the manual.
-//!
-//! The stubs are parsed once, on first use; names and types borrow the
-//! embedded text. Stubs written at run time for the installed xmake are
-//! leaked and [installed](Stubs::install) instead.
+//! | File | Functions |
+//! | ---- | --------- |
+//! | `description/scopes/<scope>.lua` | the APIs of a scope, by kind: `xmake.target.paths` |
+//! | `description/globals.lua`, `description/<module>.lua` | the functions and modules of `xmake.lua` |
+//! | `script/globals.lua`, `script/<module>.lua` | those of the scripts |
+//! | `script/instances/<instance>.lua` | the methods of `target`, `package`, ... |
+//! | `modules/<a>/<b>.lua` | the importable module `a.b` |
+//! | `types/*.lua`, `values.lua` | types and values only |
 
 use std::{
     path::{Path, PathBuf},
@@ -40,9 +36,7 @@ use std::{
 use rustc_hash::FxHashMap;
 use xmake_syntax::{Dialect, SyntaxElement, SyntaxKind, SyntaxNode, TextRange, parse};
 
-use crate::ApiKind;
-
-include!(concat!(env!("OUT_DIR"), "/stubs_table.rs"));
+use crate::{ApiKind, Instance, Scope};
 
 /// The owner of the global functions.
 pub const GLOBALS: &str = "_G";
@@ -64,7 +58,7 @@ pub struct Return {
     pub name: &'static str,
 }
 
-/// Where a function exists, see the module documentation.
+/// Where a function exists, from its file (see the module documentation).
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct Contexts {
     pub description: bool,
@@ -74,41 +68,15 @@ pub struct Contexts {
 }
 
 impl Contexts {
-    /// Parses `description script ...`.
-    pub fn parse(s: &str) -> Contexts {
-        let mut out = Contexts::default();
-        for word in s.split_whitespace() {
-            match word {
-                "description" => out.description = true,
-                "script" => out.script = true,
-                "instance" => out.instance = true,
-                "import" => out.import = true,
-                _ => {}
-            }
-        }
-        out
-    }
-
-    /// `description script`, empty for none.
-    pub fn to_tag(self) -> String {
-        let names = [
-            (self.description, "description"),
-            (self.script, "script"),
-            (self.instance, "instance"),
-            (self.import, "import"),
-        ];
-        names.iter().filter(|(on, _)| *on).map(|(_, n)| *n).collect::<Vec<_>>().join(" ")
-    }
-
     pub fn is_empty(self) -> bool {
         self == Contexts::default()
     }
 }
 
-/// Where a stub is written: the file of the stubs and the range of its name.
+/// Where a stub is written: its file, relative to the stubs (`script/os.lua`),
+/// and the range of its name.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Location {
-    /// `os.lua`
     pub file: &'static str,
     pub range: TextRange,
 }
@@ -116,7 +84,8 @@ pub struct Location {
 /// A function of a module or a method of a class.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Function {
-    /// The class or module: `os`, `target`, `core.base.json`.
+    /// The class or module: `os`, `target`, `core.base.json`,
+    /// `xmake.target.values`.
     pub owner: &'static str,
     pub name: &'static str,
     /// Called with `:`.
@@ -124,26 +93,18 @@ pub struct Function {
     pub params: Vec<Param>,
     pub returns: Vec<Return>,
     pub doc: String,
-    /// `@xmake.kind`: an API of the description scope of [`Function::owner`].
-    pub kind: Option<ApiKind>,
-    /// `@xmake.context`
-    pub contexts: Contexts,
-    /// `@xmake.prototype`
-    pub prototype: Option<&'static str>,
-    /// `@xmake.param name description`: the parameters of the prototype.
-    pub prototype_params: Vec<(&'static str, &'static str)>,
     /// `@see`: the section of the manual.
     pub see: Option<&'static str>,
+    /// An API of a description scope, of this kind: the class
+    /// `xmake.<scope>.<kind>`.
+    pub scope: Option<(Scope, ApiKind)>,
+    pub contexts: Contexts,
+    /// The prototype in the notation of the manual, see [`Stubs::prototype`].
+    pub prototype: Option<&'static str>,
     pub location: Location,
 }
 
 impl Function {
-    /// Whether the stub types or documents the function: not only listed by
-    /// xmake.
-    pub fn is_typed(&self) -> bool {
-        !self.doc.is_empty() || !self.params.is_empty() || !self.returns.is_empty()
-    }
-
     /// `os.cp(src: string, dst: string) -> boolean`.
     pub fn signature(&self) -> String {
         let mut out = String::with_capacity(64);
@@ -157,6 +118,21 @@ impl Function {
         push_returns(&mut out, &self.returns);
         out
     }
+
+    /// Whether the stub types or documents the function: not only listed by
+    /// xmake.
+    pub fn is_typed(&self) -> bool {
+        !self.doc.is_empty() || !self.params.is_empty() || !self.returns.is_empty()
+    }
+}
+
+/// `---@field name type description` of a class.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Field {
+    pub name: &'static str,
+    pub ty: &'static str,
+    pub optional: bool,
+    pub doc: &'static str,
 }
 
 /// A class or a module table.
@@ -168,6 +144,9 @@ pub struct Class {
     pub call: Option<&'static str>,
     /// `@see`: the section of the manual.
     pub see: Option<&'static str>,
+    pub fields: Vec<Field>,
+    /// `(name, description)` of [`Class::fields`].
+    pub field_docs: Vec<(&'static str, &'static str)>,
     pub location: Location,
 }
 
@@ -175,6 +154,8 @@ pub struct Class {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Alias {
     pub name: &'static str,
+    /// The type of a one line alias: `---@alias xmake.value.target string`.
+    pub ty: &'static str,
     pub values: Vec<(&'static str, &'static str)>,
 }
 
@@ -209,12 +190,11 @@ pub struct Stubs {
     classes: Vec<Class>,
     functions: Vec<Function>,
     aliases: Vec<Alias>,
-    /// `@xmake.version` of the xmake the lists come from.
-    pub version: Option<&'static str>,
-    /// The files, `(name, text)`.
+    /// The xmake version: the name of the directory.
+    pub version: Option<String>,
+    /// The files, `(path relative to the stubs, text)`.
     files: Vec<(&'static str, &'static str)>,
-    /// The directory holding [`Stubs::files`] on the disk, for editors to
-    /// open them.
+    /// The directory of the stubs.
     dir: Option<PathBuf>,
 }
 
@@ -222,10 +202,26 @@ pub struct Stubs {
 static ACTIVE: RwLock<Option<&'static Stubs>> = RwLock::new(None);
 
 impl Stubs {
-    /// The stubs embedded in the binary.
+    /// The stubs shipped with the server (see [`Stubs::locate`]); none when
+    /// they are not found.
     pub fn builtin() -> &'static Stubs {
         static STUBS: OnceLock<Stubs> = OnceLock::new();
-        STUBS.get_or_init(|| Stubs::parse_files(STUB_FILES.to_vec()))
+        STUBS.get_or_init(|| match Stubs::locate().map(|dir| Stubs::read_dir(&dir)) {
+            Some(Ok(stubs)) => stubs,
+            _ => Stubs::default(),
+        })
+    }
+
+    /// The directory of the newest stubs shipped with the server: under
+    /// `$XMAKE_ANALYZER_STUBS`, `stubs/` next to the executable or the stubs
+    /// of the sources (a build of the repository).
+    pub fn locate() -> Option<PathBuf> {
+        let roots = [
+            std::env::var_os("XMAKE_ANALYZER_STUBS").map(PathBuf::from),
+            std::env::current_exe().ok().and_then(|e| Some(e.parent()?.join("stubs"))),
+            Some(PathBuf::from(concat!(env!("CARGO_MANIFEST_DIR"), "/stubs"))),
+        ];
+        roots.into_iter().flatten().find_map(|root| newest_version(&root))
     }
 
     /// The stubs in use, see [`Stubs::install`].
@@ -244,52 +240,52 @@ impl Stubs {
         stubs
     }
 
-    /// Parses `(name, text)` files.
+    /// Uses the builtin stubs again.
+    pub fn reset() {
+        if let Ok(mut active) = ACTIVE.write() {
+            *active = None;
+        }
+    }
+
+    /// Parses `(path, text)` files: `path` relative to the stubs, with `/`.
     pub fn parse_files(files: Vec<(&'static str, &'static str)>) -> Stubs {
         let mut stubs = Stubs::default();
-        for &(name, text) in &files {
-            stubs.parse_file(name, text);
+        for &(path, text) in &files {
+            stubs.parse_file(path, text);
         }
         stubs.files = files;
+        // Once per load: the stubs live until the end of the process.
+        let prototypes: Vec<Option<&'static str>> =
+            stubs.functions.iter().map(|f| stubs.prototype(f).map(|p| &*String::leak(p))).collect();
+        for (f, prototype) in stubs.functions.iter_mut().zip(prototypes) {
+            f.prototype = prototype;
+        }
         stubs
     }
 
-    /// Reads the `*.lua` files of `dir`; the texts are leaked, see
-    /// [`Stubs::install`].
+    /// Reads the `*.lua` files under `dir`, whose name is the xmake version;
+    /// the texts are leaked, see [`Stubs::install`].
     pub fn read_dir(dir: &Path) -> std::io::Result<Stubs> {
         let mut files = Vec::new();
-        for entry in std::fs::read_dir(dir)? {
-            let path = entry?.path();
-            if path.extension().is_none_or(|e| e != "lua") {
-                continue;
-            }
-            let name =
-                path.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
-            let text = std::fs::read_to_string(&path)?;
-            files.push((&*String::leak(name), &*String::leak(text)));
-        }
+        read_lua_files(dir, dir, &mut files)?;
         files.sort_unstable();
         let mut stubs = Stubs::parse_files(files);
+        stubs.version = dir.file_name().map(|n| n.to_string_lossy().into_owned());
         stubs.dir = Some(dir.to_owned());
         Ok(stubs)
     }
 
-    /// The files, `(name, text)`, sorted by name.
+    /// The files, `(path, text)`, sorted by path.
     pub fn files(&self) -> &[(&'static str, &'static str)] {
         &self.files
     }
 
-    /// The directory of the files on the disk, when known.
+    /// The directory of the stubs.
     pub fn dir(&self) -> Option<&Path> {
         self.dir.as_deref()
     }
 
-    /// Sets [`Stubs::dir`]: the files are there.
-    pub fn set_dir(&mut self, dir: PathBuf) {
-        self.dir = Some(dir);
-    }
-
-    /// The path of `location` on the disk, when the files are there.
+    /// The path of `location` on the disk.
     pub fn path_of(&self, location: Location) -> Option<PathBuf> {
         Some(self.dir.as_ref()?.join(location.file))
     }
@@ -299,44 +295,60 @@ impl Stubs {
         &self.functions
     }
 
-    /// The alias `name`: `xmake.platform`, ...
+    /// Every alias.
+    pub fn aliases(&self) -> &[Alias] {
+        &self.aliases
+    }
+
+    /// The alias `name`: `xmake.value.platform`, ...
     pub fn alias(&self, name: &str) -> Option<&Alias> {
         self.aliases.iter().find(|a| a.name == name)
     }
 
-    /// The class or module `name`.
     /// Every class: the instances (`target`, ...) and the modules (`os`, ...).
     pub fn classes(&self) -> impl Iterator<Item = &Class> {
         self.classes.iter()
     }
 
+    /// The class or module `name`.
     pub fn class(&self, name: &str) -> Option<&Class> {
         self.classes.iter().find(|c| c.name == name)
     }
 
     /// The typed functions and methods of `owner`, see [`Function::is_typed`].
     pub fn members<'a>(&'a self, owner: &'a str) -> impl Iterator<Item = &'a Function> + 'a {
-        self.functions.iter().filter(move |f| f.owner == owner && f.is_typed())
+        let mut seen = rustc_hash::FxHashSet::default();
+        self.functions
+            .iter()
+            .filter(move |f| f.owner == owner && f.is_typed() && seen.insert(f.name))
+    }
+
+    /// Every function and method of `owner`, typed or only listed.
+    pub fn all_members<'a>(&'a self, owner: &'a str) -> impl Iterator<Item = &'a Function> + 'a {
+        let mut seen = rustc_hash::FxHashSet::default();
+        self.functions.iter().filter(move |f| f.owner == owner && seen.insert(f.name))
     }
 
     /// The typed function or method `name` of `owner`.
     pub fn member(&self, owner: &str, name: &str) -> Option<&Function> {
-        self.find(owner, name).filter(|f| f.is_typed())
+        let mut found = self.functions.iter().filter(|f| f.owner == owner && f.name == name);
+        found.find(|f| f.is_typed())
     }
 
-    /// The function or method `name` of `owner`, typed or only listed.
+    /// The function or method `name` of `owner`, typed or only listed: the
+    /// typed one first.
     pub fn find(&self, owner: &str, name: &str) -> Option<&Function> {
-        self.functions.iter().find(|f| f.owner == owner && f.name == name)
+        self.member(owner, name)
+            .or_else(|| self.functions.iter().find(|f| f.owner == owner && f.name == name))
+    }
+
+    /// The API `name` of `scope`, whatever its kind.
+    pub fn scope_api(&self, scope: Scope, name: &str) -> Option<&Function> {
+        self.functions.iter().find(|f| f.name == name && f.scope.is_some_and(|(s, _)| s == scope))
     }
 
     fn parse_file(&mut self, file: &'static str, text: &'static str) {
         self.parse_aliases(text);
-        if self.version.is_none() {
-            self.version = text
-                .lines()
-                .find_map(|l| l.trim().strip_prefix("---@xmake.version"))
-                .map(str::trim);
-        }
         let parse = parse(text, Dialect::XMAKE_DEFAULT);
         let root = parse.root(text);
         // Local names of the class tables: `local target = {}`.
@@ -366,7 +378,7 @@ impl Stubs {
         }
     }
 
-    /// `---@alias name` and its `---| "value" # description` lines.
+    /// `---@alias name [type]` and its `---| "value" # description` lines.
     fn parse_aliases(&mut self, text: &'static str) {
         let mut current: Option<Alias> = None;
         for line in text.lines() {
@@ -381,9 +393,10 @@ impl Stubs {
                 continue;
             }
             self.aliases.extend(current.take());
-            if let Some(name) = line.strip_prefix("---@alias") {
-                let name = name.split_whitespace().next().unwrap_or("");
-                current = Some(Alias { name, values: Vec::new() });
+            if let Some(rest) = line.strip_prefix("---@alias") {
+                let rest = rest.trim();
+                let (name, ty) = rest.split_once(char::is_whitespace).unwrap_or((rest, ""));
+                current = Some(Alias { name, ty: ty.trim(), values: Vec::new() });
             }
         }
         self.aliases.extend(current);
@@ -410,11 +423,14 @@ impl Stubs {
                 if let Some(var) = var {
                     tables.insert(var, class);
                 }
+                let field_docs = annotations.fields.iter().map(|f| (f.name, f.doc)).collect();
                 self.classes.push(Class {
                     name: class,
                     doc: annotations.doc,
                     call: annotations.overload,
                     see: annotations.see,
+                    fields: annotations.fields,
+                    field_docs,
                     location: Location { file, range: node.trimmed_range() },
                 });
             }
@@ -436,6 +452,7 @@ impl Stubs {
                     }
                     _ => return,
                 };
+                let (scope, contexts) = place(file, owner, method);
                 self.functions.push(Function {
                     owner,
                     name: slice(text, function.text_range()),
@@ -443,11 +460,10 @@ impl Stubs {
                     params: annotations.params,
                     returns: annotations.returns,
                     doc: annotations.doc,
-                    kind: annotations.kind,
-                    contexts: annotations.contexts,
-                    prototype: annotations.prototype,
-                    prototype_params: annotations.prototype_params,
                     see: annotations.see,
+                    scope,
+                    contexts,
+                    prototype: None,
                     location: Location { file, range: function.text_range() },
                 });
             }
@@ -456,7 +472,73 @@ impl Stubs {
     }
 }
 
-/// `text[range]` with the static lifetime of the embedded stub.
+/// The newest `<version>/` under `root`.
+fn newest_version(root: &Path) -> Option<PathBuf> {
+    let key = |dir: &Path| -> Option<Vec<u64>> {
+        dir.file_name()?.to_str()?.split('.').map(|p| p.parse().ok()).collect()
+    };
+    std::fs::read_dir(root)
+        .ok()?
+        .flatten()
+        .map(|e| e.path())
+        .filter(|p| p.is_dir())
+        .filter_map(|p| Some((key(&p)?, p)))
+        .max()
+        .map(|(_, p)| p)
+}
+
+fn read_lua_files(
+    root: &Path,
+    dir: &Path,
+    out: &mut Vec<(&'static str, &'static str)>,
+) -> std::io::Result<()> {
+    for entry in std::fs::read_dir(dir)? {
+        let path = entry?.path();
+        if path.is_dir() {
+            read_lua_files(root, &path, out)?;
+            continue;
+        }
+        if path.extension().is_none_or(|e| e != "lua") {
+            continue;
+        }
+        let relative = path.strip_prefix(root).unwrap_or(&path);
+        let name = relative.to_string_lossy().replace('\\', "/");
+        let text = std::fs::read_to_string(&path)?;
+        out.push((&*String::leak(name), &*String::leak(text)));
+    }
+    Ok(())
+}
+
+/// The scope API and the contexts of a function of `owner` in `file`.
+fn place(file: &str, owner: &str, method: bool) -> (Option<(Scope, ApiKind)>, Contexts) {
+    let mut contexts = Contexts::default();
+    let stem = file.rsplit('/').next().unwrap_or(file).trim_end_matches(".lua");
+    if file.starts_with("description/scopes/") {
+        let scope_api = owner.strip_prefix("xmake.").and_then(|rest| {
+            let (scope, kind) = rest.split_once('.')?;
+            let scope =
+                std::iter::once(Scope::Root).chain(Scope::NAMED).find(|s| s.name() == scope)?;
+            Some((scope, ApiKind::parse(kind)?))
+        });
+        return (scope_api, contexts);
+    }
+    if let Some(module) = file.strip_prefix("modules/") {
+        let module = module.trim_end_matches(".lua").replace('/', ".");
+        contexts.import = owner == module;
+        return (None, contexts);
+    }
+    let (description, script) = (file.starts_with("description/"), file.starts_with("script/"));
+    if file.starts_with("script/instances/") {
+        contexts.instance = method && owner == stem && Instance::parse(stem).is_some();
+    } else if (description || script) && (owner == stem || (stem == "globals" && owner == GLOBALS))
+    {
+        contexts.description = description;
+        contexts.script = script;
+    }
+    (None, contexts)
+}
+
+/// `text[range]` with the static lifetime of the stub text.
 fn slice(text: &'static str, range: xmake_syntax::TextRange) -> &'static str {
     &text[range]
 }
@@ -469,10 +551,7 @@ struct Annotations {
     overload: Option<&'static str>,
     params: Vec<Param>,
     returns: Vec<Return>,
-    kind: Option<ApiKind>,
-    contexts: Contexts,
-    prototype: Option<&'static str>,
-    prototype_params: Vec<(&'static str, &'static str)>,
+    fields: Vec<Field>,
     see: Option<&'static str>,
 }
 
@@ -490,6 +569,9 @@ impl Annotations {
                 out.annotation(annotation);
                 continue;
             }
+            if line.starts_with('|') {
+                continue;
+            }
             doc_lines.push(line.strip_prefix(' ').unwrap_or(line).trim_end());
         }
         while doc_lines.last().is_some_and(|l| l.is_empty()) {
@@ -505,12 +587,17 @@ impl Annotations {
         match tag {
             "class" => self.class = rest.split([' ', ':']).next().filter(|c| !c.is_empty()),
             "overload" => self.overload = Some(rest),
-            "param" => {
+            "param" | "field" => {
                 let (name, rest) = rest.split_once(char::is_whitespace).unwrap_or((rest, "any"));
                 let (ty, doc) = split_type(rest.trim());
                 let optional = name.ends_with('?');
                 let name = name.trim_end_matches('?');
-                self.params.push(Param { name, ty, optional, doc: doc.trim() });
+                let doc = doc.trim();
+                if tag == "param" {
+                    self.params.push(Param { name, ty, optional, doc });
+                } else {
+                    self.fields.push(Field { name, ty, optional, doc });
+                }
             }
             "return" => {
                 let (ty, rest) = split_type(rest);
@@ -518,13 +605,6 @@ impl Annotations {
                 self.returns.push(Return { ty, name });
             }
             "see" => self.see = Some(rest).filter(|s| !s.is_empty()),
-            "xmake.kind" => self.kind = ApiKind::parse(rest),
-            "xmake.context" => self.contexts = Contexts::parse(rest),
-            "xmake.prototype" => self.prototype = Some(rest).filter(|s| !s.is_empty()),
-            "xmake.param" => {
-                let (name, description) = rest.split_once(' ').unwrap_or((rest, ""));
-                self.prototype_params.push((name, description.trim()));
-            }
             _ => {}
         }
     }
@@ -559,6 +639,115 @@ pub fn class_of(ty: &str) -> Option<&str> {
     let name = first.trim_end_matches('?');
     let simple = name.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'_' || b == b'.');
     (simple && !name.is_empty()).then_some(name)
+}
+
+/// A LuaCATS type in the notation of the manual, which the prototypes use:
+/// `string|string[]` is `string|array`, `fun(target: target)` is
+/// `function (target)`, the aliases of values are `string`.
+pub fn manual_type(ty: &str) -> String {
+    let mut parts: Vec<String> = Vec::new();
+    for part in split_union(ty) {
+        let part = part.trim();
+        let manual = if part.ends_with("[]") {
+            "array".to_owned()
+        } else if let Some(params) = part.strip_prefix("fun(") {
+            let inner = params.split(')').next().unwrap_or("");
+            let names: Vec<&str> = inner
+                .split(',')
+                .map(|p| p.split(':').next().unwrap_or("").trim())
+                .filter(|p| !p.is_empty())
+                .collect();
+            if names.is_empty() {
+                "function".to_owned()
+            } else {
+                format!("function ({})", names.join(", "))
+            }
+        } else if part.starts_with("xmake.value.") {
+            "string".to_owned()
+        } else {
+            part.to_owned()
+        };
+        if !parts.contains(&manual) {
+            parts.push(manual);
+        }
+    }
+    parts.join("|")
+}
+
+/// The parts of a union, `|` inside brackets kept.
+fn split_union(ty: &str) -> Vec<&str> {
+    let (mut out, mut depth, mut start) = (Vec::new(), 0i32, 0);
+    for (i, c) in ty.char_indices() {
+        match c {
+            '(' | '{' | '[' | '<' => depth += 1,
+            ')' | '}' | ']' | '>' => depth -= 1,
+            '|' if depth == 0 => {
+                out.push(&ty[start..i]);
+                start = i + 1;
+            }
+            _ => {}
+        }
+    }
+    out.push(&ty[start..]);
+    out
+}
+
+impl Stubs {
+    /// The prototype of `function` in the notation of the manual:
+    /// `add_files(files: string|array, ..., {defines, languages})`; `None`
+    /// without parameters.
+    pub fn prototype(&self, function: &Function) -> Option<String> {
+        if function.params.is_empty() {
+            return None;
+        }
+        let mut params: Vec<String> = Vec::new();
+        for p in &function.params {
+            let keys = self.table_keys(p.ty);
+            let param = match keys {
+                Some(keys) => format!("{{{}}}", keys.join(", ")),
+                None if p.name == "..." => "...".to_owned(),
+                None => format!(
+                    "{}{}: {}",
+                    p.name,
+                    if p.optional { "?" } else { "" },
+                    manual_type(p.ty)
+                ),
+            };
+            params.push(param);
+        }
+        Some(format!("{}({})", function.name, params.join(", ")))
+    }
+
+    /// The keys of an options table type: a class (`xmake.options.flags`)
+    /// or a table literal (`{defines?: string, force?: boolean}`).
+    fn table_keys(&self, ty: &str) -> Option<Vec<String>> {
+        let ty = ty.trim().trim_end_matches('?');
+        if let Some(class) = self.class(ty).filter(|_| ty.starts_with("xmake.options.")) {
+            return Some(class.fields.iter().map(|f| f.name.to_owned()).collect());
+        }
+        let inner = ty.strip_prefix('{')?.strip_suffix('}')?;
+        let mut keys = Vec::new();
+        let (mut depth, mut start) = (0i32, 0);
+        let mut push = |part: &str| {
+            let key = part.split(':').next().unwrap_or("").trim().trim_end_matches('?');
+            if !key.is_empty() {
+                keys.push(key.to_owned());
+            }
+        };
+        for (i, c) in inner.char_indices() {
+            match c {
+                '(' | '{' | '[' | '<' => depth += 1,
+                ')' | '}' | ']' | '>' => depth -= 1,
+                ',' if depth == 0 => {
+                    push(&inner[start..i]);
+                    start = i + 1;
+                }
+                _ => {}
+            }
+        }
+        push(&inner[start..]);
+        Some(keys)
+    }
 }
 
 #[cfg(test)]
@@ -605,5 +794,8 @@ mod tests {
         assert_eq!(class_of("string[]"), None);
         assert_eq!(class_of("nil|package"), Some("package"));
         assert_eq!(class_of("table<string, target>"), None);
+        assert_eq!(manual_type("string|string[]"), "string|array");
+        assert_eq!(manual_type("fun(target: target)|string"), "function (target)|string");
+        assert_eq!(manual_type("xmake.value.kind"), "string");
     }
 }

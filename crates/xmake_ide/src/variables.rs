@@ -123,7 +123,7 @@ pub(crate) fn names<'a>(
             ));
         }
     }
-    for &(name, doc) in xmake_api::BUILTIN_CONFIGS {
+    for &(name, doc) in xmake_api::builtin_configs() {
         out.push((name, Cow::Borrowed(doc)));
     }
     out

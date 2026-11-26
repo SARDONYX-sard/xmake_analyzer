@@ -94,7 +94,7 @@ pub(crate) fn run(args: &[String]) -> i32 {
         roots.iter().map(|r| std::path::absolute(r).unwrap_or_else(|_| r.clone())).collect();
 
     if query_xmake {
-        match crate::probe::probe(std::path::Path::new("xmake")) {
+        match crate::probe::probe(std::path::Path::new("xmake"), &|_| {}) {
             Ok(probe) => {
                 project.xmake_version = Some(probe.version);
                 project.db = probe.db;
