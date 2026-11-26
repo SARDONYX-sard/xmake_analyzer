@@ -556,6 +556,34 @@ fn global_hover(project: &Project, file: &AnalyzedFile, token: SyntaxToken<'_>) 
     Some(page("xmake", &signature, &doc, None))
 }
 
+/// Aliases with few values written as their values, as the Lua extension
+/// shows them: `kind: "binary"|"static"|...` for `kind: xmake.value.kind`.
+fn expand_aliases(signature: &str) -> String {
+    const MAX_VALUES: usize = 10;
+    let stubs = Stubs::get();
+    let is_name = |c: char| c.is_ascii_alphanumeric() || c == '_' || c == '.';
+    let mut out = String::with_capacity(signature.len());
+    let mut rest = signature;
+    while let Some(start) = rest.find("xmake.value.") {
+        out.push_str(&rest[..start]);
+        let end = rest[start..].find(|c: char| !is_name(c)).map_or(rest.len(), |i| start + i);
+        let name = &rest[start..end];
+        let small =
+            stubs.alias(name).filter(|a| !a.values.is_empty() && a.values.len() <= MAX_VALUES);
+        match small {
+            Some(alias) => {
+                let values: Vec<String> =
+                    alias.values.iter().map(|(v, _)| format!("{v:?}")).collect();
+                out.push_str(&values.join("|"));
+            }
+            None => out.push_str(name),
+        }
+        rest = &rest[end..];
+    }
+    out.push_str(rest);
+    out
+}
+
 /// The signature of the manual (`set_default(default: boolean)`) instead of
 /// the one guessed from the kind of the API, and its parameters documented.
 fn with_prototype<'d>(
@@ -572,6 +600,7 @@ fn with_prototype<'d>(
         Some([alone, patterns]) => Cow::Owned(format!("{alone}\n{patterns}")),
         None => xmake_types::luacats_prototype(prototype),
     };
+    let prototype = Cow::<str>::Owned(expand_aliases(&prototype));
     if params.is_empty() || doc.contains("# Parameters") {
         return (prototype.into_owned(), doc);
     }
@@ -993,7 +1022,9 @@ mod tests {
         let api = hover_at("target('a')\n  set_k$ind('binary')").expect("api hover");
         // The prototype of the manual, not one guessed from the kind of the API.
         assert!(
-            api.starts_with("```lua\ntarget\n```\n```lua\nset_kind(kind: string)\n```\n\n---\n\n"),
+            api.starts_with(
+                "```lua\ntarget\n```\n```lua\nset_kind(kind: \"binary\"|\"static\"|\"shared\"|\"object\"|\"headeronly\"|\"moduleonly\"|\"phony\")\n```\n\n---\n\n"
+            ),
             "{api}"
         );
         let default = hover_at("target('a')\n  set_def$ault(false)").expect("set_default");

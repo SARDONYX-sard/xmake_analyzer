@@ -300,7 +300,10 @@ fn push_typed(out: &mut String, tag: &str, p: &Param) {
 fn push_function(out: &mut String, f: &Func, var: &str) {
     out.push('\n');
     push_doc(out, &f.doc);
-    for extra in &f.extra {
+    // `@diagnostic disable-next-line` goes right before the code.
+    let (diagnostics, extras): (Vec<&String>, Vec<&String>) =
+        f.extra.iter().partition(|e| e.starts_with("diagnostic"));
+    for extra in extras {
         let _ = writeln!(out, "---@{extra}");
     }
     for p in &f.params {
@@ -311,6 +314,9 @@ fn push_function(out: &mut String, f: &Func, var: &str) {
     }
     if let Some(see) = &f.see {
         let _ = writeln!(out, "---@see {see}");
+    }
+    for diagnostic in diagnostics {
+        let _ = writeln!(out, "---@{diagnostic}");
     }
     // `function f(files, ...) end`: nothing after `...` in Lua.
     let mut args: Vec<&str> = Vec::new();

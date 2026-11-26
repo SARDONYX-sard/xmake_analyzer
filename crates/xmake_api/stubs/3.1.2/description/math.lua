@@ -41,6 +41,7 @@ function math.sqrt(x) end
 ---@param m? integer
 ---@param n? integer
 ---@return number
+---@diagnostic disable-next-line: redundant-parameter
 function math.random(m, n) end
 
 --- Converts to an integer when the value is integral (Lua 5.3+).

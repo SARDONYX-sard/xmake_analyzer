@@ -658,7 +658,7 @@ impl Annotations {
             }
             "see" => self.see = Some(rest).filter(|s| !s.is_empty()),
             // Of the file, not of a stub.
-            "meta" | "diagnostic" => {}
+            "meta" => {}
             _ => self.extra.push(annotation.trim_end()),
         }
     }

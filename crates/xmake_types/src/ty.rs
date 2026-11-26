@@ -118,8 +118,6 @@ impl<'a> Type<'a> {
             }
             _ if text.bytes().all(|b| b.is_ascii_digit()) => Type::Integer,
             _ if Stubs::get().class(text).is_some() => Type::Class(text),
-            // The values of the stubs (`xmake.value.kind`): strings.
-            _ if Stubs::get().alias(text).is_some() => Type::String,
             _ => Type::Named(text),
         }
     }

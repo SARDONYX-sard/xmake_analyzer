@@ -97,7 +97,12 @@ pub struct Outline {
 impl Outline {
     /// Computes the outline of a description file.
     pub fn build(root: SyntaxNode<'_>) -> Outline {
-        let mut walker = Walker { outline: Outline::default(), current: Scope::Root, open: None };
+        let mut walker = Walker {
+            outline: Outline::default(),
+            current: Scope::Root,
+            open: None,
+            wrappers: Vec::new(),
+        };
         if let Some(block) = root.children().find_map(Block::cast) {
             walker.block(block);
         }
@@ -122,6 +127,10 @@ struct Walker {
     current: Scope,
     /// The definition whose scope is open, to close its `full_range`.
     open: Option<usize>,
+    /// Functions defining a scope named by a parameter: `snapshot_lib` of
+    /// `local function snapshot_lib(name) target(name, ...) end`, with the
+    /// scope and the index of the parameter.
+    wrappers: Vec<(String, Scope, usize)>,
 }
 
 impl Walker {
@@ -179,6 +188,7 @@ impl Walker {
             // `function toolchain_clang() toolchain("clang") ... end` called
             // at the top level: a helper of the description, not a script.
             SyntaxKind::FUNCTION_STMT | SyntaxKind::LOCAL_FUNCTION_STMT => {
+                self.wrapper(stmt);
                 let Some(body) = stmt.children().find_map(Block::cast) else {
                     return;
                 };
@@ -195,10 +205,72 @@ impl Walker {
         }
     }
 
+    /// Records `stmt` when it defines a scope named by one of its parameters:
+    /// `local function lib(name) target(name, function () ... end) end`.
+    fn wrapper(&mut self, stmt: SyntaxNode<'_>) {
+        let name = match stmt.kind() {
+            SyntaxKind::LOCAL_FUNCTION_STMT => stmt
+                .children()
+                .find(|n| n.kind() == SyntaxKind::NAME)
+                .and_then(|n| n.child_token(SyntaxKind::IDENT)),
+            _ => stmt.child_node(SyntaxKind::FUNC_NAME).and_then(|n| {
+                let mut idents = n.child_tokens().filter(|t| !t.kind().is_trivia());
+                let ident = idents.next().filter(|t| t.kind() == SyntaxKind::IDENT)?;
+                idents.next().is_none().then_some(ident)
+            }),
+        };
+        let Some(name) = name else {
+            return;
+        };
+        let Some(params) = stmt.descendants().find_map(xmake_syntax::ast::ParamList::cast) else {
+            return;
+        };
+        let params: Vec<&str> = params.params().filter_map(|p| Some(p.ident()?.text())).collect();
+        let Some(body) = stmt.children().find_map(Block::cast) else {
+            return;
+        };
+        for call in body.syntax().descendants().filter_map(CallExpr::cast) {
+            let opener = call.callee_name().and_then(Scope::from_opener);
+            let Some((scope, ScopeEdge::Begin)) = opener else {
+                continue;
+            };
+            let arg = call.arg(0).and_then(xmake_syntax::ast::NameRef::cast);
+            let index = arg.and_then(|a| params.iter().position(|p| *p == a.text()));
+            if let Some(index) = index {
+                self.wrappers.push((name.text().to_owned(), scope, index));
+            }
+        }
+    }
+
     fn call(&mut self, call: CallExpr<'_>) {
         let Some(name) = call.callee_name() else {
             return;
         };
+        // `snapshot_lib("hkdump-snapshot")`: a target named by the caller.
+        let wrapped: Vec<(Scope, usize)> = self
+            .wrappers
+            .iter()
+            .filter(|(w, _, _)| w == name)
+            .map(|&(_, scope, index)| (scope, index))
+            .collect();
+        for (scope, index) in wrapped {
+            let token = call
+                .arg(index)
+                .and_then(Literal::cast)
+                .and_then(|l| l.token())
+                .filter(|t| t.kind().is_string());
+            if let Some(token) = token {
+                let call_range = call.syntax().text_range();
+                let name_range = content_range(token);
+                let full_range = call_range;
+                self.outline.definitions.push(Definition {
+                    scope,
+                    name_range,
+                    call_range,
+                    full_range,
+                });
+            }
+        }
         if let Some((scope, edge)) = Scope::from_opener(name) {
             match edge {
                 ScopeEdge::Begin => self.begin_scope(call, scope),
@@ -478,6 +550,15 @@ mod tests {
         assert_eq!(scope_at_marker("target('a', function () $ end)\n"), Scope::Target);
         assert_eq!(scope_at_marker("target('a', function () end)\n$"), Scope::Root);
         assert_eq!(scope_at_marker("target('a', {kind = 'binary'})\n$"), Scope::Root);
+    }
+
+    #[test]
+    fn defined_by_helpers() {
+        let text = "local function lib(name, arch)\n  target(name, function () set_kind('static') end)\nend\nlib('core')\nlib('core-x64', 'x64')\nlib(computed)\n";
+        let o = outline(text);
+        let names: Vec<_> = o.definitions.iter().map(|d| &text[d.name_range]).collect();
+        assert_eq!(names, ["core", "core-x64"]);
+        assert!(o.definitions.iter().all(|d| d.scope == Scope::Target));
     }
 
     #[test]

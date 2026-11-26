@@ -1,3 +1,6 @@
+---@diagnostic disable: undefined-global
+---@diagnostic disable: undefined-field
+
 -- Dumps the description scope APIs of the installed xmake, grouped by scope
 -- and by API kind (values, paths, script, ...), as JSON on stdout.
 --
@@ -42,6 +45,7 @@ end
 
 function main()
     local result = {}
+
     result.version = xmake.version():shortstr()
     result.scopes = {
         root = _scope(function () return project.apis() end),

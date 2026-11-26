@@ -137,7 +137,10 @@ pub fn expected_params<'a>(
 fn widen_literals(ty: Type<'_>) -> Type<'_> {
     match ty {
         Type::Literal(_) => Type::String,
+        // `xmake.value.kind`: an alias of the stubs, of strings.
+        Type::Named(name) if xmake_api::Stubs::get().alias(name).is_some() => Type::String,
         Type::Union(members) => Type::union(members.into_iter().map(widen_literals)),
+        Type::Array(element) => Type::Array(Box::new(widen_literals(*element))),
         other => other,
     }
 }
