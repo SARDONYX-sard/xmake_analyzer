@@ -184,13 +184,17 @@ async function generate(dir: string, scope: vscode.Uri): Promise<void> {
         await configureClangd(target, scope);
       }
     } else {
-      output.error(`xmake failed (${code ?? "killed"}):\n${text}`);
+      // Windows gives `-1` as 4294967295.
+      const shown = code === null ? "killed" : String(code | 0);
+      output.error(`xmake failed (${shown}):\n${text || "(no output)"}`);
+      // Not awaited: the status ends with the run, not when the message
+      // is dismissed (it may stay in the notification center).
       const show = "Show Output";
-      const choice = await vscode.window.showWarningMessage(
-        "xmake could not generate compile_commands.json.",
-        show,
-      );
-      if (choice === show) output.show();
+      void vscode.window
+        .showWarningMessage("xmake could not generate compile_commands.json.", show)
+        .then((choice) => {
+          if (choice === show) output.show();
+        });
     }
   } finally {
     run.running = false;
