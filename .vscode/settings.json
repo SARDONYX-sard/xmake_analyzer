@@ -8,5 +8,6 @@
     "toolchains",
     "sumneko",
     "rustdoc"
-  ]
+  ],
+  "Lua.workspace.ignoreDir": ["xmake.lua"]
 }
