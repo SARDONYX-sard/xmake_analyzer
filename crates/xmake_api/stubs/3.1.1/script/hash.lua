@@ -1,4 +1,5 @@
 ---@meta
+---@diagnostic disable: unused-local
 
 --- Hashes of files and strings (xmake).
 ---@class hash

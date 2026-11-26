@@ -1,4 +1,5 @@
 ---@meta
+---@diagnostic disable: unused-local
 
 --- A parsed version, from `semver.new` or `xmake.version()`.
 ---@class semver

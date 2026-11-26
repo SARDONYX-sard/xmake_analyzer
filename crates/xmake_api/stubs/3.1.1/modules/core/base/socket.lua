@@ -1,4 +1,5 @@
 ---@meta
+---@diagnostic disable: unused-local
 
 ---@class core.base.socket
 local socket = {}

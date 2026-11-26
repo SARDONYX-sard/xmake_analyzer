@@ -1,4 +1,5 @@
 ---@meta
+---@diagnostic disable: unused-local
 
 ---@class package.manager.pkgconfig
 local pkgconfig = {}

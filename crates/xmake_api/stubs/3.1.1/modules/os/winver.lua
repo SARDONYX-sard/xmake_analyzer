@@ -1,4 +1,5 @@
 ---@meta
+---@diagnostic disable: unused-local
 
 ---@class os.winver
 local winver = {}

@@ -1,4 +1,5 @@
 ---@meta
+---@diagnostic disable: unused-local
 
 ---@class package.tools.autoconf
 local autoconf = {}

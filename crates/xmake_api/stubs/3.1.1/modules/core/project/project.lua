@@ -1,4 +1,5 @@
 ---@meta
+---@diagnostic disable: unused-local
 
 --- The project: its targets, options and requirements.
 ---@class core.project.project

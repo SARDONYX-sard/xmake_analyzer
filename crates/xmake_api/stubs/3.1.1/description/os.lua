@@ -1,4 +1,5 @@
 ---@meta
+---@diagnostic disable: unused-local
 
 --- The `os` module: files, processes and the environment.
 ---@class os

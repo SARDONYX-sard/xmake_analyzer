@@ -1,4 +1,5 @@
 ---@meta
+---@diagnostic disable: unused-local
 
 --- A target of the project, given to the scripts of targets and rules.
 ---@class target
@@ -133,8 +134,7 @@ function target:installdir() end
 ---
 --- Settings changed in `on_load` affect the build; later, only what has not been read yet.
 ---@param name string The setting, e.g. `defines`.
----@param ... any
----@param opt? table
+---@param ... any|table
 ---@see https://xmake.io/api/scripts/target-instance.html#target-add
 function target:add(name, ...) end
 

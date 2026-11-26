@@ -136,6 +136,8 @@ pub(crate) struct Func {
     /// `(type, name)`
     pub returns: Vec<(String, String)>,
     pub see: Option<String>,
+    /// The other annotations: `generic V`.
+    pub extra: Vec<String>,
 }
 
 #[derive(Clone, Debug, Default)]
@@ -145,6 +147,7 @@ pub(crate) struct Class {
     pub call: Option<String>,
     pub see: Option<String>,
     pub fields: Vec<Param>,
+    pub extra: Vec<String>,
 }
 
 #[derive(Clone, Debug, Default)]
@@ -181,6 +184,10 @@ impl File {
 
     fn text(&self, path: &str) -> String {
         let mut out = String::from("---@meta\n");
+        // The tables of the classes only hold the stubs.
+        if !self.classes.is_empty() {
+            out.push_str("---@diagnostic disable: unused-local\n");
+        }
         let globals_table = path.starts_with("description/") || path.starts_with("script/");
         let mut vars: Vec<(String, String)> = Vec::new();
         for class in &self.classes {
@@ -189,6 +196,9 @@ impl File {
             out.push('\n');
             push_doc(&mut out, &class.doc);
             let _ = writeln!(out, "---@class {}", class.name);
+            for extra in &class.extra {
+                let _ = writeln!(out, "---@{extra}");
+            }
             if let Some(call) = &class.call {
                 let _ = writeln!(out, "---@overload {call}");
             }
@@ -278,13 +288,21 @@ fn push_doc(out: &mut String, doc: &str) {
 fn push_typed(out: &mut String, tag: &str, p: &Param) {
     let optional = if p.optional { "?" } else { "" };
     let doc = one_line(&p.doc);
-    let line = format!("---@{tag} {}{optional} {} {doc}", p.name, p.ty);
+    // `---@field public public? any`: a field named like a visibility.
+    let visibility = match (tag, p.name.as_str()) {
+        ("field", "public" | "protected" | "private" | "package") => "public ",
+        _ => "",
+    };
+    let line = format!("---@{tag} {visibility}{}{optional} {} {doc}", p.name, p.ty);
     let _ = writeln!(out, "{}", line.trim_end());
 }
 
 fn push_function(out: &mut String, f: &Func, var: &str) {
     out.push('\n');
     push_doc(out, &f.doc);
+    for extra in &f.extra {
+        let _ = writeln!(out, "---@{extra}");
+    }
     for p in &f.params {
         push_typed(out, "param", p);
     }
@@ -331,6 +349,7 @@ pub(crate) fn model(stubs: &Stubs) -> Files {
                     doc: f.doc.to_owned(),
                 })
                 .collect(),
+            extra: class.extra.iter().map(|e| (*e).to_owned()).collect(),
         });
     }
     for f in stubs.functions() {
@@ -371,6 +390,41 @@ fn func_of(f: &crate::Function) -> Func {
             .collect(),
         returns: f.returns.iter().map(|r| (r.ty.to_owned(), r.name.to_owned())).collect(),
         see: f.see.map(str::to_owned),
+        extra: f.extra.iter().map(|e| (*e).to_owned()).collect(),
+    }
+}
+
+/// Parameters as Lua has them: nothing after `...`. The options after the
+/// values (`add_files(files, ..., {defines})`) join the type of `...`; the
+/// script after the platforms (`on_install(platforms, ..., script)`) stays
+/// alone, the platforms being an overload of every script API. A script may
+/// also be the name of one: `|string`.
+fn normalize(f: &mut Func, script_api: bool) {
+    if let Some(vararg) = f.params.iter().position(|p| p.name == "...") {
+        let after: Vec<Param> = f.params.drain(vararg + 1..).collect();
+        let script = after.iter().position(|p| p.ty.starts_with("fun("));
+        match script {
+            Some(i) if script_api => {
+                f.params = vec![after[i].clone()];
+            }
+            _ => {
+                let vararg = &mut f.params[vararg];
+                for p in after {
+                    for part in p.ty.split('|') {
+                        if !vararg.ty.split('|').any(|t| t == part) {
+                            vararg.ty = format!("{}|{part}", vararg.ty);
+                        }
+                    }
+                }
+            }
+        }
+    }
+    if script_api {
+        for p in &mut f.params {
+            if p.ty.starts_with("fun(") && !p.ty.split('|').any(|t| t == "string") {
+                p.ty.push_str("|string");
+            }
+        }
     }
 }
 
@@ -445,12 +499,23 @@ pub fn update(previous: &Stubs, db: &ApiDb, manual: Option<&Manual>) -> Vec<(Str
     if let Some(manual) = manual {
         apply_manual(&mut files, manual);
     }
+    normalize_files(&mut files);
     render(&files)
 }
 
 /// The text of `files`, sorted by path.
 pub(crate) fn render(files: &Files) -> Vec<(String, String)> {
     files.iter().map(|(path, file)| (path.clone(), file.text(path))).collect()
+}
+
+/// See [`normalize`].
+fn normalize_files(files: &mut Files) {
+    for file in files.values_mut() {
+        for f in &mut file.functions {
+            let script_api = f.owner.starts_with("xmake.") && f.owner.ends_with(".script");
+            normalize(f, script_api);
+        }
+    }
 }
 
 fn update_model(files: &mut Files, db: &ApiDb) {
@@ -668,5 +733,23 @@ mod tests {
             .collect();
         assert!(changed.is_empty(), "{changed:?}");
         assert_eq!(files.len(), shipped.len());
+    }
+
+    /// What LuaLS checks: nothing after `...` (`undefined-doc-param`), the
+    /// other annotations kept (`@generic`).
+    #[test]
+    fn lua_language_server_rules() {
+        let stubs = Stubs::builtin();
+        for f in stubs.functions() {
+            let vararg = f.params.iter().position(|p| p.name == "...");
+            assert!(
+                vararg.is_none_or(|i| i + 1 == f.params.len()),
+                "{} {}: a parameter after `...`",
+                f.owner,
+                f.name
+            );
+        }
+        let ipairs = stubs.member(crate::GLOBALS, "ipairs").expect("ipairs");
+        assert!(ipairs.extra.contains(&"generic V"), "{:?}", ipairs.extra);
     }
 }

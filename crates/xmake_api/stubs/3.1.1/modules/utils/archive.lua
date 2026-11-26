@@ -1,4 +1,5 @@
 ---@meta
+---@diagnostic disable: unused-local
 
 --- Archives: extract and create `.zip`, `.7z`, `.tar.gz`, ...
 ---

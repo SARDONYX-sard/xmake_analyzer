@@ -1,4 +1,5 @@
 ---@meta
+---@diagnostic disable: unused-local
 
 --- The description APIs, called in `xmake.lua` and the files it includes.
 ---

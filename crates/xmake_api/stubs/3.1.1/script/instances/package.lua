@@ -1,4 +1,5 @@
 ---@meta
+---@diagnostic disable: unused-local
 
 --- A package, given to the scripts of `package(...)` definitions.
 ---@class package

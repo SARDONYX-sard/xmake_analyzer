@@ -1,4 +1,5 @@
 ---@meta
+---@diagnostic disable: unused-local
 
 --- The command line options of xmake and of tasks.
 ---@class core.base.option

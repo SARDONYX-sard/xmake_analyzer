@@ -1,4 +1,5 @@
 ---@meta
+---@diagnostic disable: unused-local
 
 --- String functions of Lua, extended by xmake. Also methods of strings:
 --- `s:split(",")`.

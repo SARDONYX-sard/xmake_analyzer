@@ -1,4 +1,5 @@
 ---@meta
+---@diagnostic disable: unused-local
 
 ---@class core.cache.global_detectcache
 local global_detectcache = {}

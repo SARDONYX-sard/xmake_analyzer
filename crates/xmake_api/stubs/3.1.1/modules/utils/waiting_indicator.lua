@@ -1,4 +1,5 @@
 ---@meta
+---@diagnostic disable: unused-local
 
 ---@class utils.waiting_indicator
 local waiting_indicator = {}

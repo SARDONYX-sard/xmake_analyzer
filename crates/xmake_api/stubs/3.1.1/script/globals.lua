@@ -124,6 +124,7 @@ function vprint(...) end
 --- # Notes
 ---
 --- The order is the index order; use `pairs` for the other keys.
+---@generic V
 ---@param t V[]
 ---@return fun(): integer, V
 ---@see https://xmake.io/api/scripts/builtin-modules/ipairs.html

@@ -1,4 +1,5 @@
 ---@meta
+---@diagnostic disable: unused-local
 
 ---@class core.base.bloom_filter
 local bloom_filter = {}

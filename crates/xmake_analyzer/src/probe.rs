@@ -82,18 +82,35 @@ fn stubs_in(dir: &Path, db: &ApiDb, progress: &dyn Fn(&str)) -> std::io::Result<
     Stubs::read_dir(dir)
 }
 
-/// Writes `files` (`(path, text)`, `path` relative with `/`) to `dir`,
-/// replacing what it held.
+/// Writes `files` (`(path, text)`, `path` relative with `/`) to `dir`: the
+/// files are written first, then the `*.lua` files no longer there removed,
+/// so that a failure leaves every file.
 pub(crate) fn write_stubs(dir: &Path, files: &[(String, String)]) -> std::io::Result<()> {
-    if dir.exists() {
-        std::fs::remove_dir_all(dir)?;
-    }
+    let mut written = rustc_hash::FxHashSet::default();
     for (path, text) in files {
         let path = dir.join(path);
         if let Some(parent) = path.parent() {
             std::fs::create_dir_all(parent)?;
         }
-        std::fs::write(path, text)?;
+        std::fs::write(&path, text)?;
+        written.insert(path);
+    }
+    remove_stale(dir, &written)
+}
+
+/// Removes the `*.lua` files under `dir` not in `keep`, and the directories
+/// left empty.
+fn remove_stale(dir: &Path, keep: &rustc_hash::FxHashSet<PathBuf>) -> std::io::Result<()> {
+    for entry in std::fs::read_dir(dir)?.flatten() {
+        let path = entry.path();
+        if path.is_dir() {
+            remove_stale(&path, keep)?;
+            if std::fs::read_dir(&path)?.next().is_none() {
+                std::fs::remove_dir(&path)?;
+            }
+        } else if path.extension().is_some_and(|e| e == "lua") && !keep.contains(&path) {
+            std::fs::remove_file(&path)?;
+        }
     }
     Ok(())
 }
@@ -247,6 +264,7 @@ const STUBS_USAGE: &str =
 USAGE:
     xmake_analyzer stubs [--xmake PATH] [--manual FILE] [--out DIR]
     xmake_analyzer stubs --clean
+    xmake_analyzer stubs --rewrite
 
     --xmake PATH   The xmake to read the lists from (default: xmake).
     --manual FILE  The sections of the manual, from `tools/gen_doc_links.py`:
@@ -254,6 +272,8 @@ USAGE:
     --out DIR      Where to write them (default: crates/xmake_api/stubs/<version>).
     --clean        Delete the cache of the server: the outputs of xmake and the
                    stubs written for each xmake.
+    --rewrite      Write the shipped stubs again for their own lists, without
+                   xmake: after editing them by hand.
 
 The documentation and types of the shipped stubs are kept; the functions the
 xmake lists are added or tagged, those it lacks removed.";
@@ -279,6 +299,21 @@ pub(crate) fn run_stubs_command(args: &[String]) -> i32 {
         };
     }
     let option = |name: &str| args.iter().position(|a| a == name).and_then(|i| args.get(i + 1));
+    if args.iter().any(|a| a == "--rewrite") {
+        let stubs = Stubs::builtin();
+        let Some(dir) = stubs.dir() else {
+            eprintln!("error: no stubs found");
+            return 1;
+        };
+        let out = option("--out").map_or_else(|| dir.to_owned(), PathBuf::from);
+        let files = render::update(stubs, &ApiDb::from_stubs(stubs), None);
+        if let Err(err) = write_stubs(&out, &files) {
+            eprintln!("error: cannot write {}: {err}", out.display());
+            return 1;
+        }
+        println!("wrote the stubs to {}", out.display());
+        return 0;
+    }
     let xmake = option("--xmake").map_or_else(|| PathBuf::from("xmake"), PathBuf::from);
     let lists = match lists(&xmake, &|step| eprintln!("{step}")) {
         Ok(lists) => lists,

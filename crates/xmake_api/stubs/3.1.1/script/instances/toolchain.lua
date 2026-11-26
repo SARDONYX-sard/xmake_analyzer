@@ -1,4 +1,5 @@
 ---@meta
+---@diagnostic disable: unused-local
 
 --- A toolchain, given to the scripts of `toolchain(...)` definitions.
 ---@class toolchain

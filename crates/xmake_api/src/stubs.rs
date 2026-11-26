@@ -101,6 +101,8 @@ pub struct Function {
     pub contexts: Contexts,
     /// The prototype in the notation of the manual, see [`Stubs::prototype`].
     pub prototype: Option<&'static str>,
+    /// The other annotations, kept as written: `generic V`, `deprecated`.
+    pub extra: Vec<&'static str>,
     pub location: Location,
 }
 
@@ -147,6 +149,8 @@ pub struct Class {
     pub fields: Vec<Field>,
     /// `(name, description)` of [`Class::fields`].
     pub field_docs: Vec<(&'static str, &'static str)>,
+    /// The other annotations, kept as written.
+    pub extra: Vec<&'static str>,
     pub location: Location,
 }
 
@@ -431,6 +435,7 @@ impl Stubs {
                     see: annotations.see,
                     fields: annotations.fields,
                     field_docs,
+                    extra: annotations.extra,
                     location: Location { file, range: node.trimmed_range() },
                 });
             }
@@ -464,6 +469,7 @@ impl Stubs {
                     scope,
                     contexts,
                     prototype: None,
+                    extra: annotations.extra,
                     location: Location { file, range: function.text_range() },
                 });
             }
@@ -553,6 +559,7 @@ struct Annotations {
     returns: Vec<Return>,
     fields: Vec<Field>,
     see: Option<&'static str>,
+    extra: Vec<&'static str>,
 }
 
 impl Annotations {
@@ -588,6 +595,21 @@ impl Annotations {
             "class" => self.class = rest.split([' ', ':']).next().filter(|c| !c.is_empty()),
             "overload" => self.overload = Some(rest),
             "param" | "field" => {
+                // `---@field public public? any`: a visibility, then a field
+                // named like one.
+                let rest = match rest.split_once(char::is_whitespace) {
+                    Some((visibility, after))
+                        if tag == "field"
+                            && matches!(
+                                visibility,
+                                "public" | "protected" | "private" | "package"
+                            )
+                            && after.trim().contains(char::is_whitespace) =>
+                    {
+                        after.trim()
+                    }
+                    _ => rest,
+                };
                 let (name, rest) = rest.split_once(char::is_whitespace).unwrap_or((rest, "any"));
                 let (ty, doc) = split_type(rest.trim());
                 let optional = name.ends_with('?');
@@ -605,7 +627,9 @@ impl Annotations {
                 self.returns.push(Return { ty, name });
             }
             "see" => self.see = Some(rest).filter(|s| !s.is_empty()),
-            _ => {}
+            // Of the file, not of a stub.
+            "meta" | "diagnostic" => {}
+            _ => self.extra.push(annotation.trim_end()),
         }
     }
 }
@@ -646,8 +670,18 @@ pub fn class_of(ty: &str) -> Option<&str> {
 /// `function (target)`, the aliases of values are `string`.
 pub fn manual_type(ty: &str) -> String {
     let mut parts: Vec<String> = Vec::new();
+    // `fun(target: target)|string`: a script, or its name; the manual says
+    // `function (target)`.
+    let script = split_union(ty).iter().any(|p| p.trim().starts_with("fun("));
     for part in split_union(ty) {
         let part = part.trim();
+        if script && part == "string" {
+            continue;
+        }
+        // An options table is no value: see [`Stubs::prototype`].
+        if part.starts_with('{') || part.starts_with("xmake.options.") {
+            continue;
+        }
         let manual = if part.ends_with("[]") {
             "array".to_owned()
         } else if let Some(params) = part.strip_prefix("fun(") {
@@ -702,16 +736,21 @@ impl Stubs {
         }
         let mut params: Vec<String> = Vec::new();
         for p in &function.params {
-            let keys = self.table_keys(p.ty);
-            let param = match keys {
+            // `...: string|string[]|{defines?: any}`: values, then options.
+            if p.name == "..." {
+                params.push("...".to_owned());
+                let options = split_union(p.ty).into_iter().find_map(|part| self.table_keys(part));
+                if let Some(keys) = options {
+                    params.push(format!("{{{}}}", keys.join(", ")));
+                }
+                continue;
+            }
+            let param = match self.table_keys(p.ty) {
                 Some(keys) => format!("{{{}}}", keys.join(", ")),
-                None if p.name == "..." => "...".to_owned(),
-                None => format!(
-                    "{}{}: {}",
-                    p.name,
-                    if p.optional { "?" } else { "" },
-                    manual_type(p.ty)
-                ),
+                None => {
+                    let optional = if p.optional { "?" } else { "" };
+                    format!("{}{optional}: {}", p.name, manual_type(p.ty))
+                }
             };
             params.push(param);
         }
@@ -795,7 +834,7 @@ mod tests {
         assert_eq!(class_of("nil|package"), Some("package"));
         assert_eq!(class_of("table<string, target>"), None);
         assert_eq!(manual_type("string|string[]"), "string|array");
-        assert_eq!(manual_type("fun(target: target)|string"), "function (target)|string");
+        assert_eq!(manual_type("fun(target: target)|string"), "function (target)");
         assert_eq!(manual_type("xmake.value.kind"), "string");
     }
 }

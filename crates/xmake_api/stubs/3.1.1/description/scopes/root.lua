@@ -1,4 +1,5 @@
 ---@meta
+---@diagnostic disable: unused-local
 
 ---@class xmake.root.values
 local root_values = {}
@@ -6,20 +7,17 @@ local root_values = {}
 function root_values.add_addons() end
 
 ---@param repos string|string[] Repository name and URL string or array, format: "name url"
----@param ... string|string[] Variable parameters, can pass multiple repositories
----@param opts? {rootdir?: any}
+---@param ... string|string[]|{rootdir?: any} Variable parameters, can pass multiple repositories
 ---@see https://xmake.io/api/description/global-interfaces.html#add-repositories
 function root_values.add_repositories(repos, ...) end
 
 ---@param packages string|string[] Package name string or array, supports pattern matching like "*" or "libpng.zlib"
----@param ... string|string[] Variable parameters, can pass multiple package names
----@param opts? {configs?: any, override?: any, version?: any, debug?: any}
+---@param ... string|string[]|{configs?: any, override?: any, version?: any, debug?: any} Variable parameters, can pass multiple package names
 ---@see https://xmake.io/api/description/global-interfaces.html#add-requireconfs
 function root_values.add_requireconfs(packages, ...) end
 
 ---@param packages string|string[] Package name string or array, supports semantic version like "tbox 1.6.*"
----@param ... string|string[] Variable parameters, can pass multiple package names
----@param opts? {optional?: any, system?: any, verify?: any, debug?: any, private?: any, configs?: any, alias?: any}
+---@param ... string|string[]|{optional?: any, system?: any, verify?: any, debug?: any, private?: any, configs?: any, alias?: any} Variable parameters, can pass multiple package names
 ---@see https://xmake.io/api/description/global-interfaces.html#add-requires
 function root_values.add_requires(packages, ...) end
 

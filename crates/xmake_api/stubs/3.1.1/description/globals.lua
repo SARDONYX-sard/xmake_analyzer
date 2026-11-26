@@ -27,6 +27,7 @@ function print(...) end
 --- # Notes
 ---
 --- The order is the index order; use `pairs` for the other keys.
+---@generic V
 ---@param t V[]
 ---@return fun(): integer, V
 ---@see https://xmake.io/api/scripts/builtin-modules/ipairs.html
@@ -123,8 +124,7 @@ function add_subfiles() end
 function getenv() end
 
 ---@param paths string|string[] Sub-project file or directory path, supports pattern matching like "**/xmake.lua"
----@param ... string|string[] Variable parameters, can pass multiple paths
----@param opts? {rootdir?: any}
+---@param ... string|string[]|{rootdir?: any} Variable parameters, can pass multiple paths
 ---@see https://xmake.io/api/description/global-interfaces.html#includes
 function includes(paths, ...) end
 

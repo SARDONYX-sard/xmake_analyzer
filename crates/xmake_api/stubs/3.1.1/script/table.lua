@@ -1,4 +1,5 @@
 ---@meta
+---@diagnostic disable: unused-local
 
 --- Table functions of Lua, extended by xmake.
 ---@class table

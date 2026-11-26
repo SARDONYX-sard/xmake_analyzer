@@ -1,4 +1,5 @@
 ---@meta
+---@diagnostic disable: unused-local
 
 --- A set, from `core.base.hashset`.
 ---@class hashset

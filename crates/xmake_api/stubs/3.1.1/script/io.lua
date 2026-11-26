@@ -1,4 +1,5 @@
 ---@meta
+---@diagnostic disable: unused-local
 
 --- The `io` module of Lua, extended by xmake.
 ---@class io

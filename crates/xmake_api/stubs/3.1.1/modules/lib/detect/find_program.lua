@@ -1,4 +1,5 @@
 ---@meta
+---@diagnostic disable: unused-local
 
 --- Finds a program and returns its path.
 ---@class lib.detect.find_program

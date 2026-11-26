@@ -1,4 +1,5 @@
 ---@meta
+---@diagnostic disable: unused-local
 
 --- The configuration of the project (`xmake f`).
 ---@class core.project.config

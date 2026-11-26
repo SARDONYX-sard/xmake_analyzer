@@ -1,9 +1,10 @@
 ---@meta
+---@diagnostic disable: unused-local
 
 ---@class xmake.task.script
 local task_script = {}
 
----@param script fun() Task execution function
+---@param script fun()|string Task execution function
 ---@see https://xmake.io/api/description/plugin-and-task.html#on-run
 function task_script.on_run(script) end
 

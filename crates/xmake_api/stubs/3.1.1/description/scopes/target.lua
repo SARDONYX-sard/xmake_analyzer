@@ -1,4 +1,5 @@
 ---@meta
+---@diagnostic disable: unused-local
 
 ---@class xmake.target.values
 local target_values = {}
@@ -6,8 +7,7 @@ local target_values = {}
 function target_values.add_aicpuflags() end
 
 ---@param arflags string|string[] Static library archive option string or array, supports wildcard matching patterns
----@param ... string|string[] Variable parameters, can pass multiple static library archive option strings
----@param opts? {private?: any}
+---@param ... string|string[]|{private?: any} Variable parameters, can pass multiple static library archive option strings
 ---@see https://xmake.io/api/description/project-target.html#add-arflags
 function target_values.add_arflags(arflags, ...) end
 
@@ -16,34 +16,29 @@ function target_values.add_ascflags() end
 function target_values.add_ascnpuarchs() end
 
 ---@param asflags string|string[] Assembly compilation option string or array, supports wildcard matching patterns
----@param ... string|string[] Variable parameters, can pass multiple assembly compilation option strings
----@param opts? {private?: any}
+---@param ... string|string[]|{private?: any} Variable parameters, can pass multiple assembly compilation option strings
 ---@see https://xmake.io/api/description/project-target.html#add-asflags
 function target_values.add_asflags(asflags, ...) end
 
 ---@param cflags string|string[] C compilation option string or array, supports wildcard matching patterns
----@param ... string|string[] Variable parameters, can pass multiple C compilation option strings
----@param opts? {private?: any}
+---@param ... string|string[]|{private?: any} Variable parameters, can pass multiple C compilation option strings
 ---@see https://xmake.io/api/description/project-target.html#add-cflags
 function target_values.add_cflags(cflags, ...) end
 
 function target_values.add_csflags() end
 
 ---@param cuflags string|string[] CUDA compilation option string or array, supports wildcard matching patterns
----@param ... string|string[] Variable parameters, can pass multiple CUDA compilation option strings
----@param opts? {private?: any}
+---@param ... string|string[]|{private?: any} Variable parameters, can pass multiple CUDA compilation option strings
 ---@see https://xmake.io/api/description/project-target.html#add-cuflags
 function target_values.add_cuflags(cuflags, ...) end
 
 ---@param cugencodes string|string[] CUDA device gencode setting string or array, such as "sm_30", "sm_50"
----@param ... string|string[] Variable parameters, can pass multiple CUDA device gencode setting strings
----@param opts? {private?: any}
+---@param ... string|string[]|{private?: any} Variable parameters, can pass multiple CUDA device gencode setting strings
 ---@see https://xmake.io/api/description/project-target.html#add-cugencodes
 function target_values.add_cugencodes(cugencodes, ...) end
 
 ---@param culdflags string|string[] CUDA device link option string or array, supports wildcard matching patterns
----@param ... string|string[] Variable parameters, can pass multiple CUDA device link option strings
----@param opts? {private?: any}
+---@param ... string|string[]|{private?: any} Variable parameters, can pass multiple CUDA device link option strings
 ---@see https://xmake.io/api/description/project-target.html#add-culdflags
 function target_values.add_culdflags(culdflags, ...) end
 
@@ -51,32 +46,27 @@ function target_values.add_culdflags(culdflags, ...) end
 function target_values.add_cxflags() end
 
 ---@param cxxflags string|string[] C++ compilation option string or array, supports wildcard matching patterns
----@param ... string|string[] Variable parameters, can pass multiple C++ compilation option strings
----@param opts? {private?: any}
+---@param ... string|string[]|{private?: any} Variable parameters, can pass multiple C++ compilation option strings
 ---@see https://xmake.io/api/description/project-target.html#add-cxxflags
 function target_values.add_cxxflags(cxxflags, ...) end
 
 ---@param dcflags string|string[] D language compilation option string or array, supports wildcard matching patterns
----@param ... string|string[] Variable parameters, can pass multiple D language compilation option strings
----@param opts? {private?: any}
+---@param ... string|string[]|{private?: any} Variable parameters, can pass multiple D language compilation option strings
 ---@see https://xmake.io/api/description/project-target.html#add-dcflags
 function target_values.add_dcflags(dcflags, ...) end
 
 ---@param defines string|string[] Macro definition string or array, supports wildcard matching patterns
----@param ... string|string[] Variable parameters, can pass multiple macro definition strings
----@param opts? {private?: any}
+---@param ... string|string[]|{private?: any} Variable parameters, can pass multiple macro definition strings
 ---@see https://xmake.io/api/description/project-target.html#add-defines
 function target_values.add_defines(defines, ...) end
 
 ---@param deps xmake.value.target|xmake.value.target[] Dependency target name string or array, supports wildcard matching patterns
----@param ... xmake.value.target|xmake.value.target[] Variable parameters, can pass multiple dependency target name strings
----@param opts? {inherit?: any}
+---@param ... xmake.value.target|xmake.value.target[]|{inherit?: any} Variable parameters, can pass multiple dependency target name strings
 ---@see https://xmake.io/api/description/project-target.html#add-deps
 function target_values.add_deps(deps, ...) end
 
 ---@param fcflags string|string[] Fortran compilation option string or array, supports wildcard matching patterns
----@param ... string|string[] Variable parameters, can pass multiple Fortran compilation option strings
----@param opts? {private?: any}
+---@param ... string|string[]|{private?: any} Variable parameters, can pass multiple Fortran compilation option strings
 ---@see https://xmake.io/api/description/project-target.html#add-fcflags
 function target_values.add_fcflags(fcflags, ...) end
 
@@ -87,20 +77,17 @@ function target_values.add_fcflags(fcflags, ...) end
 function target_values.add_filegroups(name, files, ...) end
 
 ---@param includes string|string[] Header file path string or array, such as "config.h"
----@param ... string|string[] Variable parameters, can pass multiple header file path strings
----@param opts? {private?: any}
+---@param ... string|string[]|{private?: any} Variable parameters, can pass multiple header file path strings
 ---@see https://xmake.io/api/description/project-target.html#add-forceincludes
 function target_values.add_forceincludes(includes, ...) end
 
 ---@param frameworks string|string[] Framework name string or array, supports wildcard matching patterns
----@param ... string|string[] Variable parameters, can pass multiple framework name strings
----@param opts? {private?: any}
+---@param ... string|string[]|{private?: any} Variable parameters, can pass multiple framework name strings
 ---@see https://xmake.io/api/description/project-target.html#add-frameworks
 function target_values.add_frameworks(frameworks, ...) end
 
 ---@param gcflags string|string[] Go compilation option string or array, supports wildcard matching patterns
----@param ... string|string[] Variable parameters, can pass multiple Go compilation option strings
----@param opts? {private?: any}
+---@param ... string|string[]|{private?: any} Variable parameters, can pass multiple Go compilation option strings
 ---@see https://xmake.io/api/description/project-target.html#add-gcflags
 function target_values.add_gcflags(gcflags, ...) end
 
@@ -112,40 +99,34 @@ function target_values.add_imports(modules, ...) end
 function target_values.add_kcflags() end
 
 ---@param languages string|string[] Language standard string or array, supports wildcard matching patterns
----@param ... string|string[] Variable parameters, can pass multiple language standard strings
----@param opts? {private?: any}
+---@param ... string|string[]|{private?: any} Variable parameters, can pass multiple language standard strings
 ---@see https://xmake.io/api/description/project-target.html#add-languages
 function target_values.add_languages(languages, ...) end
 
 ---@param ldflags string|string[] Link option string or array, supports wildcard matching patterns
----@param ... string|string[] Variable parameters, can pass multiple link option strings
----@param opts? {private?: any}
+---@param ... string|string[]|{private?: any} Variable parameters, can pass multiple link option strings
 ---@see https://xmake.io/api/description/project-target.html#add-ldflags
 function target_values.add_ldflags(ldflags, ...) end
 
 ---@param links string|string[] Link library name string or array, supports wildcard matching patterns
----@param ... string|string[] Variable parameters, can pass multiple link library name strings
----@param opts? {private?: any}
+---@param ... string|string[]|{private?: any} Variable parameters, can pass multiple link library name strings
 ---@see https://xmake.io/api/description/project-target.html#add-links
 function target_values.add_links(links, ...) end
 
 ---@param mflags string|string[] ObjC compilation option string or array, supports wildcard matching patterns
----@param ... string|string[] Variable parameters, can pass multiple ObjC compilation option strings
----@param opts? {private?: any}
+---@param ... string|string[]|{private?: any} Variable parameters, can pass multiple ObjC compilation option strings
 ---@see https://xmake.io/api/description/project-target.html#add-mflags
 function target_values.add_mflags(mflags, ...) end
 
 function target_values.add_mrcflags() end
 
 ---@param mxflags string|string[] ObjC/ObjC++ compilation option string or array, supports wildcard matching patterns
----@param ... string|string[] Variable parameters, can pass multiple ObjC/ObjC++ compilation option strings
----@param opts? {private?: any}
+---@param ... string|string[]|{private?: any} Variable parameters, can pass multiple ObjC/ObjC++ compilation option strings
 ---@see https://xmake.io/api/description/project-target.html#add-mxflags
 function target_values.add_mxflags(mxflags, ...) end
 
 ---@param mxxflags string|string[] ObjC++ compilation option string or array, supports wildcard matching patterns
----@param ... string|string[] Variable parameters, can pass multiple ObjC++ compilation option strings
----@param opts? {private?: any}
+---@param ... string|string[]|{private?: any} Variable parameters, can pass multiple ObjC++ compilation option strings
 ---@see https://xmake.io/api/description/project-target.html#add-mxxflags
 function target_values.add_mxxflags(mxxflags, ...) end
 
@@ -155,72 +136,61 @@ function target_values.add_ncflags() end
 function target_values.add_options() end
 
 ---@param packages xmake.value.package|xmake.value.package[] Package name string or array, supports wildcard matching patterns
----@param ... xmake.value.package|xmake.value.package[] Variable parameters, can pass multiple package name strings
----@param opts? {private?: any}
+---@param ... xmake.value.package|xmake.value.package[]|{private?: any} Variable parameters, can pass multiple package name strings
 ---@see https://xmake.io/api/description/project-target.html#add-packages
 function target_values.add_packages(packages, ...) end
 
 function target_values.add_pcflags() end
 
 ---@param rcflags string|string[] Rust compilation option string or array, supports wildcard matching patterns
----@param ... string|string[] Variable parameters, can pass multiple Rust compilation option strings
----@param opts? {private?: any}
+---@param ... string|string[]|{private?: any} Variable parameters, can pass multiple Rust compilation option strings
 ---@see https://xmake.io/api/description/project-target.html#add-rcflags
 function target_values.add_rcflags(rcflags, ...) end
 
 ---@param rpathdirs string|string[] Runtime library search directory string or array, supports wildcard matching patterns
----@param ... string|string[] Variable parameters, can pass multiple runtime library search directory strings
----@param opts? {private?: any}
+---@param ... string|string[]|{private?: any} Variable parameters, can pass multiple runtime library search directory strings
 ---@see https://xmake.io/api/description/project-target.html#add-rpathdirs
 function target_values.add_rpathdirs(rpathdirs, ...) end
 
 ---@param rules xmake.value.rule|xmake.value.rule[] Rule name string or array, such as "markdown"
----@param ... xmake.value.rule|xmake.value.rule[] Variable parameters, can pass multiple rule name strings
----@param opts? {private?: any}
+---@param ... xmake.value.rule|xmake.value.rule[]|{private?: any} Variable parameters, can pass multiple rule name strings
 ---@see https://xmake.io/api/description/project-target.html#add-rules
 function target_values.add_rules(rules, ...) end
 
 ---@param scflags string|string[] Swift compilation option string or array, supports wildcard matching patterns
----@param ... string|string[] Variable parameters, can pass multiple Swift compilation option strings
----@param opts? {private?: any}
+---@param ... string|string[]|{private?: any} Variable parameters, can pass multiple Swift compilation option strings
 ---@see https://xmake.io/api/description/project-target.html#add-scflags
 function target_values.add_scflags(scflags, ...) end
 
 ---@param shflags string|string[] Dynamic library link option string or array, supports wildcard matching patterns
----@param ... string|string[] Variable parameters, can pass multiple dynamic library link option strings
----@param opts? {private?: any}
+---@param ... string|string[]|{private?: any} Variable parameters, can pass multiple dynamic library link option strings
 ---@see https://xmake.io/api/description/project-target.html#add-shflags
 function target_values.add_shflags(shflags, ...) end
 
 ---@param syslinks string|string[] System link library name string or array, supports wildcard matching patterns
----@param ... string|string[] Variable parameters, can pass multiple system link library name strings
----@param opts? {private?: any}
+---@param ... string|string[]|{private?: any} Variable parameters, can pass multiple system link library name strings
 ---@see https://xmake.io/api/description/project-target.html#add-syslinks
 function target_values.add_syslinks(syslinks, ...) end
 
 ---@param tests string|string[] Test case name string or array, such as "test1", "test2"
----@param ... string|string[] Variable parameters, can pass multiple test case name strings
----@param opts? {runargs?: any, runenvs?: any, timeout?: any}
+---@param ... string|string[]|{runargs?: any, runenvs?: any, timeout?: any} Variable parameters, can pass multiple test case name strings
 ---@see https://xmake.io/api/description/project-target.html#add-tests
 function target_values.add_tests(tests, ...) end
 
 function target_values.add_toolchains() end
 
 ---@param undefines string|string[] Macro definition name string or array, such as "DEBUG"
----@param ... string|string[] Variable parameters, can pass multiple macro definition name strings
----@param opts? {private?: any}
+---@param ... string|string[]|{private?: any} Variable parameters, can pass multiple macro definition name strings
 ---@see https://xmake.io/api/description/project-target.html#add-undefines
 function target_values.add_undefines(undefines, ...) end
 
 ---@param vectorexts string|string[] Vector extension instruction string or array, such as "mmx", "neon", "avx"
----@param ... string|string[] Variable parameters, can pass multiple vector extension instruction strings
----@param opts? {private?: any}
+---@param ... string|string[]|{private?: any} Variable parameters, can pass multiple vector extension instruction strings
 ---@see https://xmake.io/api/description/project-target.html#add-vectorexts
 function target_values.add_vectorexts(vectorexts, ...) end
 
 ---@param zcflags string|string[] Zig compilation option string or array, supports wildcard matching patterns
----@param ... string|string[] Variable parameters, can pass multiple Zig compilation option strings
----@param opts? {private?: any}
+---@param ... string|string[]|{private?: any} Variable parameters, can pass multiple Zig compilation option strings
 ---@see https://xmake.io/api/description/project-target.html#add-zcflags
 function target_values.add_zcflags(zcflags, ...) end
 
@@ -259,8 +229,7 @@ function target_values.set_extension(extension) end
 function target_values.set_filename(filename) end
 
 ---@param fpmodels xmake.value.fpmodel|xmake.value.fpmodel[] Float-point mode string or array, optional values: fast, strict, except, precise
----@param ... xmake.value.fpmodel|xmake.value.fpmodel[] Variable parameters, can pass multiple float-point mode strings
----@param opts? {private?: any}
+---@param ... xmake.value.fpmodel|xmake.value.fpmodel[]|{private?: any} Variable parameters, can pass multiple float-point mode strings
 ---@see https://xmake.io/api/description/project-target.html#set-fpmodels
 function target_values.set_fpmodels(fpmodels, ...) end
 
@@ -273,8 +242,7 @@ function target_values.set_group(group) end
 function target_values.set_kind(kind) end
 
 ---@param languages xmake.value.language|xmake.value.language[] Language standard string or array, supports wildcard matching patterns
----@param ... xmake.value.language|xmake.value.language[] Variable parameters, can pass multiple language standard strings
----@param opts? {private?: any}
+---@param ... xmake.value.language|xmake.value.language[]|{private?: any} Variable parameters, can pass multiple language standard strings
 ---@see https://xmake.io/api/description/project-target.html#set-languages
 function target_values.set_languages(languages, ...) end
 
@@ -329,8 +297,7 @@ function target_values.set_suffixname(suffixname) end
 function target_values.set_symbols(symbols, opts) end
 
 ---@param toolchains xmake.value.toolchain|xmake.value.toolchain[] Toolchain name string or array, such as "gcc", "clang", "msvc", "ndk[gcc]", "mingw[clang]@llvm-mingw", "msvc[vs=2025]"
----@param ... xmake.value.toolchain|xmake.value.toolchain[] Variable parameters, can pass multiple toolchain name strings
----@param opts? {vs?: any, plat?: any, arch?: any, clang?: any, gcc?: any, vs_sdkver?: any, vs_toolset?: any}
+---@param ... xmake.value.toolchain|xmake.value.toolchain[]|{vs?: any, plat?: any, arch?: any, clang?: any, gcc?: any, vs_sdkver?: any, vs_toolset?: any} Variable parameters, can pass multiple toolchain name strings
 ---@see https://xmake.io/api/description/project-target.html#set-toolchains
 function target_values.set_toolchains(toolchains, ...) end
 
@@ -350,14 +317,12 @@ local target_paths = {}
 function target_paths.add_cleanfiles() end
 
 ---@param configfiles string|string[] Configuration file path string or array, supports wildcard matching patterns
----@param ... string|string[] Variable parameters, can pass multiple configuration file path strings
----@param opts? {prefixdir?: any, rootdir?: any, filename?: any}
+---@param ... string|string[]|{prefixdir?: any, rootdir?: any, filename?: any} Variable parameters, can pass multiple configuration file path strings
 ---@see https://xmake.io/api/description/project-target.html#add-configfiles
 function target_paths.add_configfiles(configfiles, ...) end
 
 ---@param embeddirs string|string[] #embed search directory string or array, supports wildcard matching patterns
----@param ... string|string[] Variable parameters, can pass multiple #embed search directory strings
----@param opts? {private?: any}
+---@param ... string|string[]|{private?: any} Variable parameters, can pass multiple #embed search directory strings
 ---@see https://xmake.io/api/description/project-target.html#add-embeddirs
 function target_paths.add_embeddirs(embeddirs, ...) end
 
@@ -367,44 +332,37 @@ function target_paths.add_embeddirs(embeddirs, ...) end
 function target_paths.add_extrafiles(extrafiles, ...) end
 
 ---@param files string|string[] File path string or file path array, supports wildcard matching patterns
----@param ... string|string[] Variable parameters, can pass multiple file path strings
----@param opts? {defines?: any, languages?: any, includedirs?: any, rules?: any, force?: any, sourcekind?: any, flags?: any}
+---@param ... string|string[]|{defines?: any, languages?: any, includedirs?: any, rules?: any, force?: any, sourcekind?: any, flags?: any} Variable parameters, can pass multiple file path strings
 ---@see https://xmake.io/api/description/project-target.html#add-files
 function target_paths.add_files(files, ...) end
 
 ---@param frameworkdirs string|string[] Framework search directory string or array, supports wildcard matching patterns
----@param ... string|string[] Variable parameters, can pass multiple framework search directory strings
----@param opts? {private?: any}
+---@param ... string|string[]|{private?: any} Variable parameters, can pass multiple framework search directory strings
 ---@see https://xmake.io/api/description/project-target.html#add-frameworkdirs
 function target_paths.add_frameworkdirs(frameworkdirs, ...) end
 
 ---@param headerfiles string|string[] Header file path string or array, supports wildcard matching patterns
----@param ... string|string[] Variable parameters, can pass multiple header file path strings
----@param opts? {prefixdir?: any, rootdir?: any, filename?: any}
+---@param ... string|string[]|{prefixdir?: any, rootdir?: any, filename?: any} Variable parameters, can pass multiple header file path strings
 ---@see https://xmake.io/api/description/project-target.html#add-headerfiles
 function target_paths.add_headerfiles(headerfiles, ...) end
 
 ---@param includedirs string|string[] Header file search directory string or array, supports wildcard matching patterns
----@param ... string|string[] Variable parameters, can pass multiple header file search directory strings
----@param opts? {private?: any}
+---@param ... string|string[]|{private?: any} Variable parameters, can pass multiple header file search directory strings
 ---@see https://xmake.io/api/description/project-target.html#add-includedirs
 function target_paths.add_includedirs(includedirs, ...) end
 
 ---@param installfiles string|string[] Installation file path string or array, supports wildcard matching patterns
----@param ... string|string[] Variable parameters, can pass multiple installation file path strings
----@param opts? {prefixdir?: any, rootdir?: any, filename?: any}
+---@param ... string|string[]|{prefixdir?: any, rootdir?: any, filename?: any} Variable parameters, can pass multiple installation file path strings
 ---@see https://xmake.io/api/description/project-target.html#add-installfiles
 function target_paths.add_installfiles(installfiles, ...) end
 
 ---@param linkdirs string|string[] Link library search directory string or array, supports wildcard matching patterns
----@param ... string|string[] Variable parameters, can pass multiple link library search directory strings
----@param opts? {private?: any}
+---@param ... string|string[]|{private?: any} Variable parameters, can pass multiple link library search directory strings
 ---@see https://xmake.io/api/description/project-target.html#add-linkdirs
 function target_paths.add_linkdirs(linkdirs, ...) end
 
 ---@param includedirs string|string[] System header file search directory string or array, supports wildcard matching patterns
----@param ... string|string[] Variable parameters, can pass multiple system header file search directory strings
----@param opts? {private?: any}
+---@param ... string|string[]|{private?: any} Variable parameters, can pass multiple system header file search directory strings
 ---@see https://xmake.io/api/description/project-target.html#add-sysincludedirs
 function target_paths.add_sysincludedirs(includedirs, ...) end
 
@@ -469,8 +427,7 @@ function target_paths.set_targetdir() end
 local target_groups = {}
 
 ---@param linkgroups string|string[] Link group name string or array, such as "group1", "group2"
----@param ... string|string[] Variable parameters, can pass multiple link group name strings
----@param opts? {private?: any}
+---@param ... string|string[]|{private?: any} Variable parameters, can pass multiple link group name strings
 ---@see https://xmake.io/api/description/project-target.html#add-linkgroups
 function target_groups.add_linkgroups(linkgroups, ...) end
 
@@ -523,47 +480,47 @@ function target_keyvalues.set_values(name, values, ...) end
 ---@class xmake.target.script
 local target_script = {}
 
----@param script fun(target: target) After build script function, receives target parameter
+---@param script fun(target: target)|string After build script function, receives target parameter
 ---@see https://xmake.io/api/description/project-target.html#after-build
 function target_script.after_build(script) end
 
----@param script fun(target: target, sourcefile: any, opt: any) After build single file script function, receives target, sourcefile, opt parameters
+---@param script fun(target: target, sourcefile: any, opt: any)|string After build single file script function, receives target, sourcefile, opt parameters
 ---@see https://xmake.io/api/description/project-target.html#after-build-file
 function target_script.after_build_file(script) end
 
----@param script fun(target: target, sourcebatch: any, opt: any) After build files script function, receives target, sourcebatch, opt parameters
+---@param script fun(target: target, sourcebatch: any, opt: any)|string After build files script function, receives target, sourcebatch, opt parameters
 ---@see https://xmake.io/api/description/project-target.html#after-build-files
 function target_script.after_build_files(script) end
 
----@param script fun(package: package, batchcmds: any) After build script function with package and batchcmds parameters
+---@param script fun(package: package, batchcmds: any)|string After build script function with package and batchcmds parameters
 ---@see https://xmake.io/api/description/xpack-interfaces.html#after-buildcmd
 function target_script.after_buildcmd(script) end
 
----@param script fun(target: target, batchcmds: any, sourcefile: any, opt: any) After build command file script function with target, batchcmds, sourcefile and opt parameters
+---@param script fun(target: target, batchcmds: any, sourcefile: any, opt: any)|string After build command file script function with target, batchcmds, sourcefile and opt parameters
 ---@see https://xmake.io/api/description/custom-rule.html#after-buildcmd-file
 function target_script.after_buildcmd_file(script) end
 
----@param script fun(target: target, batchcmds: any, sourcebatch: any, opt: any) After build command files script function with target, batchcmds, sourcebatch and opt parameters
+---@param script fun(target: target, batchcmds: any, sourcebatch: any, opt: any)|string After build command files script function with target, batchcmds, sourcebatch and opt parameters
 ---@see https://xmake.io/api/description/custom-rule.html#after-buildcmd-files
 function target_script.after_buildcmd_files(script) end
 
----@param script fun(target: target) After clean script function, receives target parameter
+---@param script fun(target: target)|string After clean script function, receives target parameter
 ---@see https://xmake.io/api/description/project-target.html#after-clean
 function target_script.after_clean(script) end
 
----@param script fun(target: target) After config script function with target parameter
+---@param script fun(target: target)|string After config script function with target parameter
 ---@see https://xmake.io/api/description/custom-rule.html#after-config
 function target_script.after_config(script) end
 
----@param script fun(target: target) After install script function, receives target parameter
+---@param script fun(target: target)|string After install script function, receives target parameter
 ---@see https://xmake.io/api/description/project-target.html#after-install
 function target_script.after_install(script) end
 
----@param script fun(component: any, batchcmds: any) After install script function with component and batchcmds parameters
+---@param script fun(component: any, batchcmds: any)|string After install script function with component and batchcmds parameters
 ---@see https://xmake.io/api/description/xpack-component-interfaces.html#after-installcmd
 function target_script.after_installcmd(script) end
 
----@param script fun(target: target) After link script function, receives target parameter
+---@param script fun(target: target)|string After link script function, receives target parameter
 ---@see https://xmake.io/api/description/project-target.html#after-link
 function target_script.after_link(script) end
 
@@ -571,19 +528,19 @@ function target_script.after_linkcmd() end
 
 function target_script.after_load() end
 
----@param script fun(target: target) After package script function, receives target parameter
+---@param script fun(target: target)|string After package script function, receives target parameter
 ---@see https://xmake.io/api/description/project-target.html#after-package
 function target_script.after_package(script) end
 
----@param script fun(target: target) After prepare script function, receives target parameter
+---@param script fun(target: target)|string After prepare script function, receives target parameter
 ---@see https://xmake.io/api/description/project-target.html#after-prepare
 function target_script.after_prepare(script) end
 
----@param script fun(target: target, sourcefile: any, opt: any) After prepare single file script function, receives target, sourcefile, opt parameters
+---@param script fun(target: target, sourcefile: any, opt: any)|string After prepare single file script function, receives target, sourcefile, opt parameters
 ---@see https://xmake.io/api/description/project-target.html#after-prepare-file
 function target_script.after_prepare_file(script) end
 
----@param script fun(target: target, sourcebatch: any, opt: any) After prepare batch files script function, receives target, sourcebatch, opt parameters
+---@param script fun(target: target, sourcebatch: any, opt: any)|string After prepare batch files script function, receives target, sourcebatch, opt parameters
 ---@see https://xmake.io/api/description/project-target.html#after-prepare-files
 function target_script.after_prepare_files(script) end
 
@@ -593,79 +550,79 @@ function target_script.after_preparecmd_file() end
 
 function target_script.after_preparecmd_files() end
 
----@param script fun(target: target) After run script function, receives target parameter
+---@param script fun(target: target)|string After run script function, receives target parameter
 ---@see https://xmake.io/api/description/project-target.html#after-run
 function target_script.after_run(script) end
 
 function target_script.after_test() end
 
----@param script fun(target: target) After uninstall script function, receives target parameter
+---@param script fun(target: target)|string After uninstall script function, receives target parameter
 ---@see https://xmake.io/api/description/project-target.html#after-uninstall
 function target_script.after_uninstall(script) end
 
----@param script fun(component: any, batchcmds: any) After uninstall script function with component and batchcmds parameters
+---@param script fun(component: any, batchcmds: any)|string After uninstall script function with component and batchcmds parameters
 ---@see https://xmake.io/api/description/xpack-component-interfaces.html#after-uninstallcmd
 function target_script.after_uninstallcmd(script) end
 
----@param script fun(target: target) Before build script function, receives target parameter
+---@param script fun(target: target)|string Before build script function, receives target parameter
 ---@see https://xmake.io/api/description/project-target.html#before-build
 function target_script.before_build(script) end
 
----@param script fun(target: target, sourcefile: any, opt: any) Before build single file script function, receives target, sourcefile, opt parameters
+---@param script fun(target: target, sourcefile: any, opt: any)|string Before build single file script function, receives target, sourcefile, opt parameters
 ---@see https://xmake.io/api/description/project-target.html#before-build-file
 function target_script.before_build_file(script) end
 
----@param script fun(target: target, sourcebatch: any, opt: any) Before build files script function, receives target, sourcebatch, opt parameters
+---@param script fun(target: target, sourcebatch: any, opt: any)|string Before build files script function, receives target, sourcebatch, opt parameters
 ---@see https://xmake.io/api/description/project-target.html#before-build-files
 function target_script.before_build_files(script) end
 
----@param script fun(package: package, batchcmds: any) Before build script function with package and batchcmds parameters
+---@param script fun(package: package, batchcmds: any)|string Before build script function with package and batchcmds parameters
 ---@see https://xmake.io/api/description/xpack-interfaces.html#before-buildcmd
 function target_script.before_buildcmd(script) end
 
----@param script fun(target: target, batchcmds: any, sourcefile: any, opt: any) Before build command file script function with target, batchcmds, sourcefile and opt parameters
+---@param script fun(target: target, batchcmds: any, sourcefile: any, opt: any)|string Before build command file script function with target, batchcmds, sourcefile and opt parameters
 ---@see https://xmake.io/api/description/custom-rule.html#before-buildcmd-file
 function target_script.before_buildcmd_file(script) end
 
----@param script fun(target: target, batchcmds: any, sourcebatch: any, opt: any) Before build command files script function with target, batchcmds, sourcebatch and opt parameters
+---@param script fun(target: target, batchcmds: any, sourcebatch: any, opt: any)|string Before build command files script function with target, batchcmds, sourcebatch and opt parameters
 ---@see https://xmake.io/api/description/custom-rule.html#before-buildcmd-files
 function target_script.before_buildcmd_files(script) end
 
----@param script fun(target: target) Before clean script function, receives target parameter
+---@param script fun(target: target)|string Before clean script function, receives target parameter
 ---@see https://xmake.io/api/description/project-target.html#before-clean
 function target_script.before_clean(script) end
 
----@param script fun(target: target) Before config script function with target parameter
+---@param script fun(target: target)|string Before config script function with target parameter
 ---@see https://xmake.io/api/description/custom-rule.html#before-config
 function target_script.before_config(script) end
 
----@param script fun(target: target) Before install script function, receives target parameter
+---@param script fun(target: target)|string Before install script function, receives target parameter
 ---@see https://xmake.io/api/description/project-target.html#before-install
 function target_script.before_install(script) end
 
----@param script fun(component: any, batchcmds: any) Before install script function with component and batchcmds parameters
+---@param script fun(component: any, batchcmds: any)|string Before install script function with component and batchcmds parameters
 ---@see https://xmake.io/api/description/xpack-component-interfaces.html#before-installcmd
 function target_script.before_installcmd(script) end
 
----@param script fun(target: target) Before link script function, receives target parameter
+---@param script fun(target: target)|string Before link script function, receives target parameter
 ---@see https://xmake.io/api/description/project-target.html#before-link
 function target_script.before_link(script) end
 
 function target_script.before_linkcmd() end
 
----@param script fun(target: target) Before package script function, receives target parameter
+---@param script fun(target: target)|string Before package script function, receives target parameter
 ---@see https://xmake.io/api/description/project-target.html#before-package
 function target_script.before_package(script) end
 
----@param script fun(target: target) Before prepare script function, receives target parameter
+---@param script fun(target: target)|string Before prepare script function, receives target parameter
 ---@see https://xmake.io/api/description/project-target.html#before-prepare
 function target_script.before_prepare(script) end
 
----@param script fun(target: target, sourcefile: any, opt: any) Before prepare single file script function, receives target, sourcefile, opt parameters
+---@param script fun(target: target, sourcefile: any, opt: any)|string Before prepare single file script function, receives target, sourcefile, opt parameters
 ---@see https://xmake.io/api/description/project-target.html#before-prepare-file
 function target_script.before_prepare_file(script) end
 
----@param script fun(target: target, sourcebatch: any, opt: any) Before prepare batch files script function, receives target, sourcebatch, opt parameters
+---@param script fun(target: target, sourcebatch: any, opt: any)|string Before prepare batch files script function, receives target, sourcebatch, opt parameters
 ---@see https://xmake.io/api/description/project-target.html#before-prepare-files
 function target_script.before_prepare_files(script) end
 
@@ -675,83 +632,83 @@ function target_script.before_preparecmd_file() end
 
 function target_script.before_preparecmd_files() end
 
----@param script fun(target: target) Before run script function, receives target parameter
+---@param script fun(target: target)|string Before run script function, receives target parameter
 ---@see https://xmake.io/api/description/project-target.html#before-run
 function target_script.before_run(script) end
 
 function target_script.before_test() end
 
----@param script fun(target: target) Before uninstall script function, receives target parameter
+---@param script fun(target: target)|string Before uninstall script function, receives target parameter
 ---@see https://xmake.io/api/description/project-target.html#before-uninstall
 function target_script.before_uninstall(script) end
 
----@param script fun(component: any, batchcmds: any) Before uninstall script function with component and batchcmds parameters
+---@param script fun(component: any, batchcmds: any)|string Before uninstall script function with component and batchcmds parameters
 ---@see https://xmake.io/api/description/xpack-component-interfaces.html#before-uninstallcmd
 function target_script.before_uninstallcmd(script) end
 
----@param script fun(target: target) Build script function, receives target parameter
+---@param script fun(target: target)|string Build script function, receives target parameter
 ---@see https://xmake.io/api/description/project-target.html#on-build
 function target_script.on_build(script) end
 
----@param script fun(target: target, sourcefile: any, opt: any) Single file build script function, receives target, sourcefile, opt parameters
+---@param script fun(target: target, sourcefile: any, opt: any)|string Single file build script function, receives target, sourcefile, opt parameters
 ---@see https://xmake.io/api/description/project-target.html#on-build-file
 function target_script.on_build_file(script) end
 
----@param script fun(target: target, sourcebatch: any, opt: any) Multi-file build script function, receives target, sourcebatch, opt parameters
+---@param script fun(target: target, sourcebatch: any, opt: any)|string Multi-file build script function, receives target, sourcebatch, opt parameters
 ---@see https://xmake.io/api/description/project-target.html#on-build-files
 function target_script.on_build_files(script) end
 
----@param script fun(package: package, batchcmds: any) Build script function with package and batchcmds parameters
+---@param script fun(package: package, batchcmds: any)|string Build script function with package and batchcmds parameters
 ---@see https://xmake.io/api/description/xpack-interfaces.html#on-buildcmd
 function target_script.on_buildcmd(script) end
 
----@param script fun(target: target, batchcmds: any, sourcefile: any, opt: any) Build command file script function with target, batchcmds, sourcefile and opt parameters
+---@param script fun(target: target, batchcmds: any, sourcefile: any, opt: any)|string Build command file script function with target, batchcmds, sourcefile and opt parameters
 ---@see https://xmake.io/api/description/custom-rule.html#on-buildcmd-file
 function target_script.on_buildcmd_file(script) end
 
----@param script fun(target: target, batchcmds: any, sourcebatch: any, opt: any) Build command files script function with target, batchcmds, sourcebatch and opt parameters
+---@param script fun(target: target, batchcmds: any, sourcebatch: any, opt: any)|string Build command files script function with target, batchcmds, sourcebatch and opt parameters
 ---@see https://xmake.io/api/description/custom-rule.html#on-buildcmd-files
 function target_script.on_buildcmd_files(script) end
 
----@param script fun(target: target) Clean script function, receives target parameter
+---@param script fun(target: target)|string Clean script function, receives target parameter
 ---@see https://xmake.io/api/description/project-target.html#on-clean
 function target_script.on_clean(script) end
 
----@param script fun(target: target) Configuration script function, receives target parameter
+---@param script fun(target: target)|string Configuration script function, receives target parameter
 ---@see https://xmake.io/api/description/project-target.html#on-config
 function target_script.on_config(script) end
 
----@param script fun(target: target) Install script function, receives target parameter
+---@param script fun(target: target)|string Install script function, receives target parameter
 ---@see https://xmake.io/api/description/project-target.html#on-install
 function target_script.on_install(script) end
 
----@param script fun(component: any, batchcmds: any) Install script function with component and batchcmds parameters
+---@param script fun(component: any, batchcmds: any)|string Install script function with component and batchcmds parameters
 ---@see https://xmake.io/api/description/xpack-component-interfaces.html#on-installcmd
 function target_script.on_installcmd(script) end
 
----@param script fun(target: target) Link script function, receives target parameter
+---@param script fun(target: target)|string Link script function, receives target parameter
 ---@see https://xmake.io/api/description/project-target.html#on-link
 function target_script.on_link(script) end
 
 function target_script.on_linkcmd() end
 
----@param script fun(target: target) Load script function, receives target parameter
+---@param script fun(target: target)|string Load script function, receives target parameter
 ---@see https://xmake.io/api/description/project-target.html#on-load
 function target_script.on_load(script) end
 
----@param script fun(target: target) Package script function, receives target parameter
+---@param script fun(target: target)|string Package script function, receives target parameter
 ---@see https://xmake.io/api/description/project-target.html#on-package
 function target_script.on_package(script) end
 
----@param script fun(target: target, opt: any) Prepare phase script function, receives target, opt parameters
+---@param script fun(target: target, opt: any)|string Prepare phase script function, receives target, opt parameters
 ---@see https://xmake.io/api/description/project-target.html#on-prepare
 function target_script.on_prepare(script) end
 
----@param script fun(target: target, sourcefile: any, opt: any) Single file processing script function, receives target, sourcefile, opt parameters
+---@param script fun(target: target, sourcefile: any, opt: any)|string Single file processing script function, receives target, sourcefile, opt parameters
 ---@see https://xmake.io/api/description/project-target.html#on-prepare-file
 function target_script.on_prepare_file(script) end
 
----@param script fun(target: target, jobgraph: any, sourcebatch: any, opt: any) Batch file processing script function, receives target, jobgraph, sourcebatch, opt parameters
+---@param script fun(target: target, jobgraph: any, sourcebatch: any, opt: any)|string Batch file processing script function, receives target, jobgraph, sourcebatch, opt parameters
 ---@param opts? {jobgraph?: any}
 ---@see https://xmake.io/api/description/project-target.html#on-prepare-files
 function target_script.on_prepare_files(script, opts) end
@@ -762,18 +719,18 @@ function target_script.on_preparecmd_file() end
 
 function target_script.on_preparecmd_files() end
 
----@param script fun(target: target) Run script function, receives target parameter
+---@param script fun(target: target)|string Run script function, receives target parameter
 ---@see https://xmake.io/api/description/project-target.html#on-run
 function target_script.on_run(script) end
 
----@param script fun(package: package) Test script function with package parameter
+---@param script fun(package: package)|string Test script function with package parameter
 ---@see https://xmake.io/api/description/package-dependencies.html#on-test
 function target_script.on_test(script) end
 
----@param script fun(target: target) Uninstall script function, receives target parameter
+---@param script fun(target: target)|string Uninstall script function, receives target parameter
 ---@see https://xmake.io/api/description/project-target.html#on-uninstall
 function target_script.on_uninstall(script) end
 
----@param script fun(component: any, batchcmds: any) Uninstall script function with component and batchcmds parameters
+---@param script fun(component: any, batchcmds: any)|string Uninstall script function with component and batchcmds parameters
 ---@see https://xmake.io/api/description/xpack-component-interfaces.html#on-uninstallcmd
 function target_script.on_uninstallcmd(script) end

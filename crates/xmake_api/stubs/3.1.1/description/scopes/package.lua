@@ -1,4 +1,5 @@
 ---@meta
+---@diagnostic disable: unused-local
 
 ---@class xmake.package.values
 local package_values = {}
@@ -6,16 +7,14 @@ local package_values = {}
 function package_values.add_aicpuflags() end
 
 ---@param arflags string|string[] Static library archive option string or array, supports wildcard matching patterns
----@param ... string|string[] Variable parameters, can pass multiple static library archive option strings
----@param opts? {private?: any}
+---@param ... string|string[]|{private?: any} Variable parameters, can pass multiple static library archive option strings
 ---@see https://xmake.io/api/description/project-target.html#add-arflags
 function package_values.add_arflags(arflags, ...) end
 
 function package_values.add_ascflags() end
 
 ---@param asflags string|string[] Assembly compilation option string or array, supports wildcard matching patterns
----@param ... string|string[] Variable parameters, can pass multiple assembly compilation option strings
----@param opts? {private?: any}
+---@param ... string|string[]|{private?: any} Variable parameters, can pass multiple assembly compilation option strings
 ---@see https://xmake.io/api/description/project-target.html#add-asflags
 function package_values.add_asflags(asflags, ...) end
 
@@ -25,14 +24,12 @@ function package_values.add_asflags(asflags, ...) end
 function package_values.add_bindirs(dirs, ...) end
 
 ---@param cflags string|string[] C compilation option string or array, supports wildcard matching patterns
----@param ... string|string[] Variable parameters, can pass multiple C compilation option strings
----@param opts? {private?: any}
+---@param ... string|string[]|{private?: any} Variable parameters, can pass multiple C compilation option strings
 ---@see https://xmake.io/api/description/project-target.html#add-cflags
 function package_values.add_cflags(cflags, ...) end
 
 ---@param components string|string[] Component name string or array
----@param ... string|string[] Variable parameters, can pass multiple component names
----@param opts? {deps?: any}
+---@param ... string|string[]|{deps?: any} Variable parameters, can pass multiple component names
 ---@see https://xmake.io/api/description/package-dependencies.html#add-components
 function package_values.add_components(components, ...) end
 
@@ -42,14 +39,12 @@ function package_values.add_components(components, ...) end
 function package_values.add_configs(name, opts) end
 
 ---@param cuflags string|string[] CUDA compilation option string or array, supports wildcard matching patterns
----@param ... string|string[] Variable parameters, can pass multiple CUDA compilation option strings
----@param opts? {private?: any}
+---@param ... string|string[]|{private?: any} Variable parameters, can pass multiple CUDA compilation option strings
 ---@see https://xmake.io/api/description/project-target.html#add-cuflags
 function package_values.add_cuflags(cuflags, ...) end
 
 ---@param culdflags string|string[] CUDA device link option string or array, supports wildcard matching patterns
----@param ... string|string[] Variable parameters, can pass multiple CUDA device link option strings
----@param opts? {private?: any}
+---@param ... string|string[]|{private?: any} Variable parameters, can pass multiple CUDA device link option strings
 ---@see https://xmake.io/api/description/project-target.html#add-culdflags
 function package_values.add_culdflags(culdflags, ...) end
 
@@ -57,14 +52,12 @@ function package_values.add_culdflags(culdflags, ...) end
 function package_values.add_cxflags() end
 
 ---@param cxxflags string|string[] C++ compilation option string or array, supports wildcard matching patterns
----@param ... string|string[] Variable parameters, can pass multiple C++ compilation option strings
----@param opts? {private?: any}
+---@param ... string|string[]|{private?: any} Variable parameters, can pass multiple C++ compilation option strings
 ---@see https://xmake.io/api/description/project-target.html#add-cxxflags
 function package_values.add_cxxflags(cxxflags, ...) end
 
 ---@param dcflags string|string[] D language compilation option string or array, supports wildcard matching patterns
----@param ... string|string[] Variable parameters, can pass multiple D language compilation option strings
----@param opts? {private?: any}
+---@param ... string|string[]|{private?: any} Variable parameters, can pass multiple D language compilation option strings
 ---@see https://xmake.io/api/description/project-target.html#add-dcflags
 function package_values.add_dcflags(dcflags, ...) end
 
@@ -84,14 +77,12 @@ function package_values.add_deps(deps, ...) end
 function package_values.add_extsources(sources, ...) end
 
 ---@param fcflags string|string[] Fortran compilation option string or array, supports wildcard matching patterns
----@param ... string|string[] Variable parameters, can pass multiple Fortran compilation option strings
----@param opts? {private?: any}
+---@param ... string|string[]|{private?: any} Variable parameters, can pass multiple Fortran compilation option strings
 ---@see https://xmake.io/api/description/project-target.html#add-fcflags
 function package_values.add_fcflags(fcflags, ...) end
 
 ---@param frameworkdirs string|string[] Framework search directory string or array, supports wildcard matching patterns
----@param ... string|string[] Variable parameters, can pass multiple framework search directory strings
----@param opts? {private?: any}
+---@param ... string|string[]|{private?: any} Variable parameters, can pass multiple framework search directory strings
 ---@see https://xmake.io/api/description/project-target.html#add-frameworkdirs
 function package_values.add_frameworkdirs(frameworkdirs, ...) end
 
@@ -111,8 +102,7 @@ function package_values.add_imports(modules, ...) end
 function package_values.add_includedirs(dirs, ...) end
 
 ---@param ldflags string|string[] Link option string or array, supports wildcard matching patterns
----@param ... string|string[] Variable parameters, can pass multiple link option strings
----@param opts? {private?: any}
+---@param ... string|string[]|{private?: any} Variable parameters, can pass multiple link option strings
 ---@see https://xmake.io/api/description/project-target.html#add-ldflags
 function package_values.add_ldflags(ldflags, ...) end
 
@@ -127,28 +117,24 @@ function package_values.add_linkdirs(dirs, ...) end
 function package_values.add_links(links, ...) end
 
 ---@param mflags string|string[] ObjC compilation option string or array, supports wildcard matching patterns
----@param ... string|string[] Variable parameters, can pass multiple ObjC compilation option strings
----@param opts? {private?: any}
+---@param ... string|string[]|{private?: any} Variable parameters, can pass multiple ObjC compilation option strings
 ---@see https://xmake.io/api/description/project-target.html#add-mflags
 function package_values.add_mflags(mflags, ...) end
 
 ---@param mxflags string|string[] ObjC/ObjC++ compilation option string or array, supports wildcard matching patterns
----@param ... string|string[] Variable parameters, can pass multiple ObjC/ObjC++ compilation option strings
----@param opts? {private?: any}
+---@param ... string|string[]|{private?: any} Variable parameters, can pass multiple ObjC/ObjC++ compilation option strings
 ---@see https://xmake.io/api/description/project-target.html#add-mxflags
 function package_values.add_mxflags(mxflags, ...) end
 
 ---@param mxxflags string|string[] ObjC++ compilation option string or array, supports wildcard matching patterns
----@param ... string|string[] Variable parameters, can pass multiple ObjC++ compilation option strings
----@param opts? {private?: any}
+---@param ... string|string[]|{private?: any} Variable parameters, can pass multiple ObjC++ compilation option strings
 ---@see https://xmake.io/api/description/project-target.html#add-mxxflags
 function package_values.add_mxxflags(mxxflags, ...) end
 
 function package_values.add_pcflags() end
 
 ---@param rpathdirs string|string[] Runtime library search directory string or array, supports wildcard matching patterns
----@param ... string|string[] Variable parameters, can pass multiple runtime library search directory strings
----@param opts? {private?: any}
+---@param ... string|string[]|{private?: any} Variable parameters, can pass multiple runtime library search directory strings
 ---@see https://xmake.io/api/description/project-target.html#add-rpathdirs
 function package_values.add_rpathdirs(rpathdirs, ...) end
 
@@ -158,14 +144,12 @@ function package_values.add_rpathdirs(rpathdirs, ...) end
 function package_values.add_schemes(schemes, ...) end
 
 ---@param shflags string|string[] Dynamic library link option string or array, supports wildcard matching patterns
----@param ... string|string[] Variable parameters, can pass multiple dynamic library link option strings
----@param opts? {private?: any}
+---@param ... string|string[]|{private?: any} Variable parameters, can pass multiple dynamic library link option strings
 ---@see https://xmake.io/api/description/project-target.html#add-shflags
 function package_values.add_shflags(shflags, ...) end
 
 ---@param includedirs string|string[] System header file search directory string or array, supports wildcard matching patterns
----@param ... string|string[] Variable parameters, can pass multiple system header file search directory strings
----@param opts? {private?: any}
+---@param ... string|string[]|{private?: any} Variable parameters, can pass multiple system header file search directory strings
 ---@see https://xmake.io/api/description/project-target.html#add-sysincludedirs
 function package_values.add_sysincludedirs(includedirs, ...) end
 
@@ -175,26 +159,22 @@ function package_values.add_sysincludedirs(includedirs, ...) end
 function package_values.add_syslinks(syslinks, ...) end
 
 ---@param undefines string|string[] Macro definition name string or array, such as "DEBUG"
----@param ... string|string[] Variable parameters, can pass multiple macro definition name strings
----@param opts? {private?: any}
+---@param ... string|string[]|{private?: any} Variable parameters, can pass multiple macro definition name strings
 ---@see https://xmake.io/api/description/project-target.html#add-undefines
 function package_values.add_undefines(undefines, ...) end
 
 ---@param urls string|string[] Package source URL string or array
----@param ... string|string[] Variable parameters, can pass multiple URLs
----@param opts? {alias?: any, excludes?: any, version?: any, http_headers?: any}
+---@param ... string|string[]|{alias?: any, excludes?: any, version?: any, http_headers?: any} Variable parameters, can pass multiple URLs
 ---@see https://xmake.io/api/description/package-dependencies.html#add-urls
 function package_values.add_urls(urls, ...) end
 
 ---@param vectorexts string|string[] Vector extension instruction string or array, such as "mmx", "neon", "avx"
----@param ... string|string[] Variable parameters, can pass multiple vector extension instruction strings
----@param opts? {private?: any}
+---@param ... string|string[]|{private?: any} Variable parameters, can pass multiple vector extension instruction strings
 ---@see https://xmake.io/api/description/project-target.html#add-vectorexts
 function package_values.add_vectorexts(vectorexts, ...) end
 
 ---@param zcflags string|string[] Zig compilation option string or array, supports wildcard matching patterns
----@param ... string|string[] Variable parameters, can pass multiple Zig compilation option strings
----@param opts? {private?: any}
+---@param ... string|string[]|{private?: any} Variable parameters, can pass multiple Zig compilation option strings
 ---@see https://xmake.io/api/description/project-target.html#add-zcflags
 function package_values.add_zcflags(zcflags, ...) end
 
@@ -262,8 +242,7 @@ function package_values.set_plat(plat) end
 function package_values.set_sourcedir(sourcedir) end
 
 ---@param urls string|string[] Package source URL string or array
----@param ... string|string[] Variable parameters, can pass multiple URLs
----@param opts? {excludes?: any, version?: any, http_headers?: any}
+---@param ... string|string[]|{excludes?: any, version?: any, http_headers?: any} Variable parameters, can pass multiple URLs
 ---@see https://xmake.io/api/description/package-dependencies.html#set-urls
 function package_values.set_urls(urls, ...) end
 
@@ -271,8 +250,7 @@ function package_values.set_urls(urls, ...) end
 local package_groups = {}
 
 ---@param groups string|string[] Link group name string or array
----@param ... string|string[] Variable parameters, can pass multiple group names
----@param opts? {name?: any, group?: any}
+---@param ... string|string[]|{name?: any, group?: any} Variable parameters, can pass multiple group names
 ---@see https://xmake.io/api/description/package-dependencies.html#add-linkgroups
 function package_groups.add_linkgroups(groups, ...) end
 
@@ -315,39 +293,33 @@ function package_dictionary.add_versions(version, hash) end
 ---@class xmake.package.script
 local package_script = {}
 
----@param platforms string|string[] Platform filter string or array, optional
----@param ... string|string[] Variable parameters, can pass multiple platform filters
----@param script fun(package: package) Check script function with package parameter
+---@param script fun(package: package)|string Check script function with package parameter
 ---@see https://xmake.io/api/description/package-dependencies.html#on-check
-function package_script.on_check(platforms, ...) end
+function package_script.on_check(script) end
 
 ---@param component string Component name string, optional (if not provided, applies to all components)
----@param script fun(package: package, component: any) Component configuration script function with package and component parameters
+---@param script fun(package: package, component: any)|string Component configuration script function with package and component parameters
 ---@see https://xmake.io/api/description/package-dependencies.html#on-component
 function package_script.on_component(component, script) end
 
----@param script fun(package: package, opt: any) Download script function with package and opt parameters
+---@param script fun(package: package, opt: any)|string Download script function with package and opt parameters
 ---@see https://xmake.io/api/description/package-dependencies.html#on-download
 function package_script.on_download(script) end
 
----@param platforms string|string[] Platform filter string or array, optional
----@param ... string|string[] Variable parameters, can pass multiple platform filters
----@param script fun(package: package, opt: any) Fetch script function with package and opt parameters
+---@param script fun(package: package, opt: any)|string Fetch script function with package and opt parameters
 ---@see https://xmake.io/api/description/package-dependencies.html#on-fetch
-function package_script.on_fetch(platforms, ...) end
+function package_script.on_fetch(script) end
 
----@param platforms string|string[] Platform filter string or array, optional
----@param ... string|string[] Variable parameters, can pass multiple platform filters
----@param script fun(package: package) Install script function with package parameter
+---@param script fun(package: package)|string Install script function with package parameter
 ---@see https://xmake.io/api/description/package-dependencies.html#on-install
-function package_script.on_install(platforms, ...) end
+function package_script.on_install(script) end
 
----@param script fun(package: package) Package load script function with package parameter
+---@param script fun(package: package)|string Package load script function with package parameter
 ---@see https://xmake.io/api/description/package-dependencies.html#on-load
 function package_script.on_load(script) end
 
 function package_script.on_source() end
 
----@param script fun(package: package) Test script function with package parameter
+---@param script fun(package: package)|string Test script function with package parameter
 ---@see https://xmake.io/api/description/package-dependencies.html#on-test
 function package_script.on_test(script) end

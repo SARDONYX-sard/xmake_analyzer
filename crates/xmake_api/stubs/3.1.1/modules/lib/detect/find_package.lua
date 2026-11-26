@@ -1,4 +1,5 @@
 ---@meta
+---@diagnostic disable: unused-local
 
 --- Finds a package on the system: its includes, links and defines.
 ---

@@ -1,4 +1,5 @@
 ---@meta
+---@diagnostic disable: unused-local
 
 --- Tasks and plugins.
 ---@class core.base.task

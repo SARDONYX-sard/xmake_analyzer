@@ -1,4 +1,5 @@
 ---@meta
+---@diagnostic disable: unused-local
 
 --- The `path` module: path manipulations, without touching the disk.
 ---@class path

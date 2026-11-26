@@ -1,17 +1,18 @@
 ---@meta
+---@diagnostic disable: unused-local
 
 --- `{public = true}` of the values of a target: who else gets them.
 ---@class xmake.options.visibility
----@field public? any Also for the targets depending on this one.
+---@field public public? any Also for the targets depending on this one.
 ---@field interface? any Only for the targets depending on this one.
----@field private? any Only for this target (the default).
+---@field public private? any Only for this target (the default).
 local options_visibility = {}
 
 --- The options of the compilation flags.
 ---@class xmake.options.flags
 ---@field force? any Do not check whether the compiler supports the flags.
 ---@field tools? any Only for these tools: `"cl"`, `{"gcc", "clang"}`.
----@field public? any Also for the targets depending on this one.
+---@field public public? any Also for the targets depending on this one.
 ---@field interface? any Only for the targets depending on this one.
 local options_flags = {}
 
@@ -74,7 +75,7 @@ local options_test = {}
 --- The options of the dependencies.
 ---@class xmake.options.dep
 ---@field inherit? any `false`: only the build order, nothing inherited.
----@field public? any Also for the targets depending on this one.
+---@field public public? any Also for the targets depending on this one.
 ---@field interface? any Only for the targets depending on this one.
 local options_dep = {}
 
