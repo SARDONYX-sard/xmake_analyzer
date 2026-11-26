@@ -807,14 +807,15 @@ fn option_table_keys<'a>(
         .as_deref()
         .and_then(|p| project.packages.get(crate::packages::split_requirement(p).0));
     let details = entry.and_then(crate::PackageEntry::details);
-    for (config, description) in details.into_iter().flat_map(|d| d.configs) {
-        if fuzzy_match(&config, items.prefix) {
+    for config in details.into_iter().flat_map(|d| d.configs) {
+        if fuzzy_match(&config.name, items.prefix) {
+            let detail = config.summary();
             items.items.push(CompletionItem {
-                snippet: Some(Cow::Owned(format!("{config} = $1"))),
-                label: Cow::Owned(config),
+                snippet: Some(Cow::Owned(format!("{} = $1", config.name))),
+                label: Cow::Owned(config.name),
                 kind: CompletionKind::Value,
-                detail: Some(Cow::Borrowed("package config")),
-                documentation: Some(Cow::Owned(description)),
+                detail: Some(Cow::Owned(detail)),
+                documentation: Some(Cow::Owned(config.description)),
                 replace: items.replace,
                 group: group::LOCAL,
             });

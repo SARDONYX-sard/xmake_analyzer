@@ -27,7 +27,10 @@ pub use crate::{
     file::{AnalyzedFile, FileKind},
     line_index::{LineCol, LineIndex},
     outline::{Callback, Definition, Outline},
-    packages::{PackageDetails, PackageEntry, PackageIndex, compare_versions, default_globaldir},
+    packages::{
+        PackageConfig, PackageDetails, PackageEntry, PackageIndex, compare_versions,
+        default_globaldir,
+    },
     paths::{PathKind, check_path, normalize, resolve_include, resolve_module, resolve_paths},
     project::{Located, Project, ProjectScope},
     resolve::{Binding, BindingKind, resolve, visible_bindings},

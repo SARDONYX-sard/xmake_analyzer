@@ -17,7 +17,7 @@ fn project_with_repository(tag: &str) -> (crate::Project, PathBuf) {
 set_description('Compression')
 add_versions('v1.2.13', 'a')
 add_versions('v1.3', 'b')
-add_configs('zutil', {description = 'Export zutil.h'})
+add_configs('zutil', {description = 'Export zutil.h', default = false, type = 'boolean'})
 ";
     std::fs::write(package.join("xmake.lua"), definition).expect("file");
     let mut project = crate::Project::new(xmake_api::ApiDb::builtin(), Dialect::XMAKE_DEFAULT);
@@ -81,6 +81,16 @@ add_packages('zlib', 'zlbi', 'conan::foo')
     let path = PathBuf::from("xmake.lua");
     let targets = crate::goto_definition(&project, &file, &path, xmake_syntax::TextSize::new(15));
     assert!(targets[0].path.ends_with("packages/z/zlib/xmake.lua"), "{targets:?}");
+
+    // A config: its type and default, its `add_configs`.
+    let text = "add_requires('zlib', {configs = {zutil = true}})";
+    let file = project.set_file(PathBuf::from("xmake.lua"), Arc::from(text));
+    let at = xmake_syntax::TextSize::new(text.find("zutil").expect("zutil") as u32 + 1);
+    let hover = crate::hover(&project, &file, at).expect("config hover").markdown;
+    assert!(hover.contains("`boolean = false`") && hover.contains("Export zutil.h"), "{hover}");
+    let targets = crate::goto_definition(&project, &file, &path, at);
+    assert!(targets[0].path.ends_with("packages/z/zlib/xmake.lua"), "{targets:?}");
+    assert_eq!(targets[0].range, xmake_syntax::TextRange::new(115.into(), 120.into()));
 
     let _ = std::fs::remove_dir_all(&dir);
 }

@@ -36,8 +36,40 @@ pub struct PackageDetails {
     pub license: Option<String>,
     /// As written in `add_versions`, oldest first as in most files.
     pub versions: Vec<String>,
-    /// `add_configs(name, {description = ...})`.
-    pub configs: Vec<(String, String)>,
+    /// `add_configs(name, {description = ..., default = ...})`.
+    pub configs: Vec<PackageConfig>,
+}
+
+/// A configuration of a package: `add_configs("shared", {description =
+/// "...", default = false, type = "boolean"})`.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct PackageConfig {
+    pub name: String,
+    pub description: String,
+    /// As written: `false`, `"c++17"`, `is_plat("windows")`.
+    pub default: Option<String>,
+    /// `boolean`, `string`, ...
+    pub ty: Option<String>,
+    /// `values = {"a", "b"}`.
+    pub values: Vec<String>,
+    /// The name in the file of the package.
+    pub range: xmake_syntax::TextRange,
+}
+
+impl PackageConfig {
+    /// `boolean = false · values: a, b`, for completion details and hovers.
+    pub fn summary(&self) -> String {
+        let mut out = self.ty.clone().unwrap_or_else(|| "config".to_owned());
+        if let Some(default) = &self.default {
+            out.push_str(" = ");
+            out.push_str(default);
+        }
+        if !self.values.is_empty() {
+            out.push_str(" · values: ");
+            out.push_str(&self.values.join(", "));
+        }
+        out
+    }
 }
 
 /// The packages of the repositories, sorted by name.
@@ -142,17 +174,39 @@ pub fn details_of(text: &str) -> PackageDetails {
                 let Some(config) = first() else {
                     continue;
                 };
+                let token = call.arg(0).and_then(Literal::cast).and_then(|l| l.token());
+                let range = token.map(crate::outline::content_range).unwrap_or_default();
                 let table = call.arg(1).and_then(TableExpr::cast);
-                let description = table
-                    .and_then(|t| {
-                        t.fields().find(|f| f.key_name().is_some_and(|k| k.text() == "description"))
+                let field = |key: &str| {
+                    table
+                        .and_then(|t| {
+                            t.fields().find(|f| f.key_name().is_some_and(|k| k.text() == key))
+                        })
+                        .and_then(|f| f.value())
+                };
+                let string = |key: &str| {
+                    field(key)
+                        .and_then(Literal::cast)
+                        .and_then(|l| l.string_value())
+                        .map(|v| v.into_owned())
+                };
+                let values = field("values")
+                    .and_then(TableExpr::cast)
+                    .map(|t| {
+                        t.fields()
+                            .filter_map(|f| f.value())
+                            .map(|v| v.text().trim().to_owned())
+                            .collect()
                     })
-                    .and_then(|f| f.value())
-                    .and_then(Literal::cast)
-                    .and_then(|l| l.string_value())
-                    .map(|v| v.into_owned())
                     .unwrap_or_default();
-                details.configs.push((config, description));
+                details.configs.push(PackageConfig {
+                    name: config,
+                    description: string("description").unwrap_or_default(),
+                    default: field("default").map(|v| v.text().trim().to_owned()),
+                    ty: string("type"),
+                    values,
+                    range,
+                });
             }
             _ => {}
         }
@@ -248,7 +302,12 @@ mod tests {
         let d = details_of(text);
         assert_eq!(d.description.as_deref(), Some("Compression"));
         assert_eq!(d.versions, ["v1.3", "v1.2.13"]);
-        assert_eq!(d.configs, [("zutil".to_owned(), "Export zutil.h".to_owned())]);
+        assert_eq!(d.configs.len(), 1);
+        let zutil = &d.configs[0];
+        assert_eq!((zutil.name.as_str(), zutil.description.as_str()), ("zutil", "Export zutil.h"));
+        assert_eq!(zutil.default.as_deref(), Some("false"));
+        assert_eq!(zutil.summary(), "config = false");
+        assert_eq!(&text[zutil.range], "zutil");
     }
 
     #[test]

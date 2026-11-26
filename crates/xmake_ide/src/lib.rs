@@ -32,9 +32,9 @@ pub use xmake_lint::{
 };
 pub use xmake_project::{
     self, AnalyzedFile, Binding, BindingKind, Callback, CodeContext, Definition, FileKind, LineCol,
-    LineIndex, Located, Outline, PackageDetails, PackageEntry, PackageIndex, PathKind, Project,
-    ProjectScope, TextRange, TextSize, check_path, default_globaldir, normalize, resolve,
-    resolve_include, resolve_paths, visible_bindings, xmake_api, xmake_syntax,
+    LineIndex, Located, Outline, PackageConfig, PackageDetails, PackageEntry, PackageIndex,
+    PathKind, Project, ProjectScope, TextRange, TextSize, check_path, default_globaldir, normalize,
+    resolve, resolve_include, resolve_paths, visible_bindings, xmake_api, xmake_syntax,
 };
 pub use xmake_types::{self, Type, type_of};
 

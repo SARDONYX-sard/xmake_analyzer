@@ -754,9 +754,12 @@ fn option_doc(
         .and_then(|p| project.packages.get(crate::packages::split_requirement(p).0));
     let config = details
         .and_then(|e| e.details())
-        .and_then(|d| d.configs.into_iter().find(|(c, _)| c == key));
+        .and_then(|d| d.configs.into_iter().find(|c| c.name == key));
     match config {
-        Some((_, description)) => Some(Cow::Owned(description)),
+        // The field is shown above: its type and default, then the description.
+        Some(config) => {
+            Some(Cow::Owned(format!("`{}`\n\n{}", config.summary(), config.description)))
+        }
         None => find(crate::packages::COMMON_CONFIGS),
     }
 }
@@ -896,7 +899,8 @@ fn package_hover(project: &Project, name: &str) -> Option<String> {
         );
     }
     if !details.configs.is_empty() {
-        let configs: Vec<String> = details.configs.iter().map(|(c, _)| format!("`{c}`")).collect();
+        let configs: Vec<String> =
+            details.configs.iter().map(|c| format!("`{}`", c.name)).collect();
         let _ = write!(
             doc,
             "

@@ -193,6 +193,11 @@ pub fn goto_definition<'a>(
     if let Some(target) = module_member_at(project, file, offset) {
         return vec![target];
     }
+    // `shared` of `add_requires("zlib", {configs = {shared = true}})`: its
+    // `add_configs` in the package.
+    if let Some(target) = package_config_at(project, file, offset) {
+        return vec![target];
+    }
     // `set_kind`, `os.cp`, `target:name`: their stubs.
     if let Some(target) = stub_at(project, file, offset) {
         return vec![target];
@@ -254,6 +259,35 @@ fn goto_files<'a>(
         .into_iter()
         .map(|p| NavTarget { path: Cow::Owned(p), range: TextRange::default() })
         .collect()
+}
+
+/// The `add_configs` of the key at `offset` in the `configs` of an
+/// `add_requires` or `add_requireconfs`.
+fn package_config_at<'a>(
+    project: &Project,
+    file: &AnalyzedFile,
+    offset: TextSize,
+) -> Option<NavTarget<'a>> {
+    use xmake_syntax::ast::TableField;
+    let token = token_at(file, offset).filter(|t| t.kind() == SyntaxKind::IDENT)?;
+    let field = TableField::cast(token.parent()?)?;
+    if field.key_name()? != token {
+        return None;
+    }
+    let configs = TableField::cast(field.syntax().parent()?.parent()?)?;
+    if configs.key_name()?.text() != "configs" {
+        return None;
+    }
+    let args = configs.syntax().parent()?.parent()?;
+    let call = CallExpr::cast(args.parent()?)?;
+    if !matches!(call.callee_name()?, "add_requires" | "add_requireconfs") {
+        return None;
+    }
+    let package = call.arg(0).and_then(Literal::cast)?.string_value()?;
+    let (name, _) = crate::packages::split_requirement(&package);
+    let entry = project.packages.get(name)?;
+    let config = entry.details()?.configs.into_iter().find(|c| c.name == token.text())?;
+    Some(NavTarget { path: Cow::Owned(entry.path.clone()), range: config.range })
 }
 
 /// The stub of the API, function or method at `offset`, in the files of the
