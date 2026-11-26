@@ -168,8 +168,8 @@ function package_values.add_undefines(undefines, ...) end
 ---@see https://xmake.io/api/description/package-dependencies.html#add-urls
 function package_values.add_urls(urls, ...) end
 
----@param vectorexts string|string[] Vector extension instruction string or array, such as "mmx", "neon", "avx"
----@param ... string|string[]|{private?: any} Variable parameters, can pass multiple vector extension instruction strings
+---@param vectorexts xmake.value.vectorext|xmake.value.vectorext[] Vector extension instruction string or array, such as "mmx", "neon", "avx"
+---@param ... xmake.value.vectorext|xmake.value.vectorext[]|{private?: any} Variable parameters, can pass multiple vector extension instruction strings
 ---@see https://xmake.io/api/description/project-target.html#add-vectorexts
 function package_values.add_vectorexts(vectorexts, ...) end
 
@@ -222,7 +222,7 @@ function package_values.set_installdir(installdir) end
 
 function package_values.set_installtips() end
 
----@param kind string Package type: "library", "binary", "toolchain"
+---@param kind "library"|"binary"|"toolchain" Package type: "library", "binary", "toolchain"
 ---@param opts? {headeronly?: any}
 ---@see https://xmake.io/api/description/package-dependencies.html#set-kind
 function package_values.set_kind(kind, opts) end

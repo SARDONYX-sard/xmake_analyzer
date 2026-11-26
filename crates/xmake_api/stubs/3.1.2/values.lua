@@ -257,6 +257,7 @@
 ---| "build.c++.gcc.modules.cxx11abi" # Force to enable new cxx11 abi in C++ modules for gcc. (deprecated)
 ---| "build.c++.modules" # Enable C++ modules for C++ building.
 ---| "build.c++.modules.clang.fallbackscanner" # Force clang fallback module dependency scanner.
+---| "build.c++.modules.clang.precompile_reduced_bmi" # Use --precompile-reduced-bmi for Clang two-phase module compilation if supported.
 ---| "build.c++.modules.culling" # Enable unrefereced and non-public named module culling.
 ---| "build.c++.modules.fallbackscanner" # Force fallback module dependency scanner.
 ---| "build.c++.modules.gcc.cxx11abi" # Force to enable new cxx11 abi in C++ modules for gcc.

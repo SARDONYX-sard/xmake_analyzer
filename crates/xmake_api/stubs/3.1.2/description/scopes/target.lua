@@ -132,8 +132,9 @@ function target_values.add_mxxflags(mxxflags, ...) end
 
 function target_values.add_ncflags() end
 
+---@param ... xmake.value.option|xmake.value.option[]|table
 ---@see https://xmake.io/api/description/project-target.html#add-options
-function target_values.add_options() end
+function target_values.add_options(...) end
 
 ---@param packages xmake.value.package|xmake.value.package[] Package name string or array, supports wildcard matching patterns
 ---@param ... xmake.value.package|xmake.value.package[]|{private?: any} Variable parameters, can pass multiple package name strings
@@ -177,15 +178,16 @@ function target_values.add_syslinks(syslinks, ...) end
 ---@see https://xmake.io/api/description/project-target.html#add-tests
 function target_values.add_tests(tests, ...) end
 
-function target_values.add_toolchains() end
+---@param ... xmake.value.toolchain|xmake.value.toolchain[]|table
+function target_values.add_toolchains(...) end
 
 ---@param undefines string|string[] Macro definition name string or array, such as "DEBUG"
 ---@param ... string|string[]|{private?: any} Variable parameters, can pass multiple macro definition name strings
 ---@see https://xmake.io/api/description/project-target.html#add-undefines
 function target_values.add_undefines(undefines, ...) end
 
----@param vectorexts string|string[] Vector extension instruction string or array, such as "mmx", "neon", "avx"
----@param ... string|string[]|{private?: any} Variable parameters, can pass multiple vector extension instruction strings
+---@param vectorexts xmake.value.vectorext|xmake.value.vectorext[] Vector extension instruction string or array, such as "mmx", "neon", "avx"
+---@param ... xmake.value.vectorext|xmake.value.vectorext[]|{private?: any} Variable parameters, can pass multiple vector extension instruction strings
 ---@see https://xmake.io/api/description/project-target.html#add-vectorexts
 function target_values.add_vectorexts(vectorexts, ...) end
 
@@ -271,7 +273,8 @@ function target_values.set_prefixdir(prefixdir) end
 ---@see https://xmake.io/api/description/project-target.html#set-prefixname
 function target_values.set_prefixname(prefixname) end
 
-function target_values.set_rules() end
+---@param ... xmake.value.rule|xmake.value.rule[]|table
+function target_values.set_rules(...) end
 
 ---@param runargs string|string[] Run argument string or array, such as "-x", "--arg1=val"
 ---@param ... string|string[] Variable parameters, can pass multiple run argument strings
@@ -466,7 +469,7 @@ function target_keyvalues.set_policy(policy, value) end
 ---@see https://xmake.io/api/description/project-target.html#set-runenv
 function target_keyvalues.set_runenv(name, value) end
 
----@param toolname string Tool name string, such as "cc", "cxx", "ld", "ar"
+---@param toolname xmake.value.toolkind Tool name string, such as "cc", "cxx", "ld", "ar"
 ---@param tool string Tool path string, such as "/usr/bin/gcc"
 ---@see https://xmake.io/api/description/project-target.html#set-toolset
 function target_keyvalues.set_toolset(toolname, tool) end

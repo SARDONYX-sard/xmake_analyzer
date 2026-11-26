@@ -332,3 +332,31 @@
 ---@alias xmake.value.package string
 
 ---@alias xmake.value.module string
+
+---@alias xmake.value.vectorext
+---| "mmx" # MMX.
+---| "sse" # SSE.
+---| "sse2" # SSE2.
+---| "sse3" # SSE3.
+---| "ssse3" # SSSE3.
+---| "sse4.2" # SSE4.2.
+---| "avx" # AVX.
+---| "avx2" # AVX2.
+---| "avx512" # AVX-512.
+---| "fma" # FMA.
+---| "neon" # ARM NEON.
+---| "all" # Every extension the target supports.
+
+---@alias xmake.value.toolkind
+---| "cc" # The C compiler.
+---| "cxx" # The C++ compiler.
+---| "cu" # The CUDA compiler.
+---| "mm" # The Objective-C compiler.
+---| "mxx" # The Objective-C++ compiler.
+---| "as" # The assembler.
+---| "ld" # The linker of programs.
+---| "sh" # The linker of shared libraries.
+---| "ar" # The archiver of static libraries.
+---| "ex" # The extractor of static libraries.
+---| "strip" # The stripper.
+---| "rc" # The resource compiler.

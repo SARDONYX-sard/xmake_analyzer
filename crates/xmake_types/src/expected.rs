@@ -101,7 +101,9 @@ pub fn expected_params<'a>(
         }
         let (name, ty) = param.split_once(':')?;
         let optional = name.trim().ends_with('?');
-        let ty = Type::parse(ty);
+        // `"binary"|"static"`, `xmake.value.kind`: strings here, the values
+        // are checked by `unknown-value`.
+        let ty = widen_literals(Type::parse(ty));
         out.push(Expected {
             name: name.trim().trim_end_matches('?'),
             ty: if optional { Type::union([ty, Type::Nil]) } else { ty },
@@ -128,6 +130,16 @@ pub fn expected_params<'a>(
         out.pop();
     }
     Some(out)
+}
+
+/// `string` for a union of string literals (`"binary"|"static"`, and
+/// `"binary"|"static"|array`): their values are checked elsewhere.
+fn widen_literals(ty: Type<'_>) -> Type<'_> {
+    match ty {
+        Type::Literal(_) => Type::String,
+        Type::Union(members) => Type::union(members.into_iter().map(widen_literals)),
+        other => other,
+    }
 }
 
 /// The other operand of `==` or `~=` when `operand` is one side:

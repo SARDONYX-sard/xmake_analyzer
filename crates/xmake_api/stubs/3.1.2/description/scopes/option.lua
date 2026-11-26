@@ -208,8 +208,8 @@ function option_values.add_syslinks(syslinks, ...) end
 ---@see https://xmake.io/api/description/project-target.html#add-undefines
 function option_values.add_undefines(undefines, ...) end
 
----@param vectorexts string|string[] Vector extension instruction string or array, such as "mmx", "neon", "avx"
----@param ... string|string[]|{private?: any} Variable parameters, can pass multiple vector extension instruction strings
+---@param vectorexts xmake.value.vectorext|xmake.value.vectorext[] Vector extension instruction string or array, such as "mmx", "neon", "avx"
+---@param ... xmake.value.vectorext|xmake.value.vectorext[]|{private?: any} Variable parameters, can pass multiple vector extension instruction strings
 ---@see https://xmake.io/api/description/project-target.html#add-vectorexts
 function option_values.add_vectorexts(vectorexts, ...) end
 

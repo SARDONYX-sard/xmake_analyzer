@@ -338,3 +338,33 @@ fn members_of_imported_modules() {
         assert!(has(&labels, "install"), "{text}: {labels:?}");
     }
 }
+
+#[test]
+fn values_from_the_types_of_the_stubs() {
+    // `"library"|"binary"|"toolchain"`: literals of the type.
+    let package = complete(
+        "package('p')
+    set_kind('$')
+",
+    );
+    assert!(has(&package, "library") && !has(&package, "shared"), "{package:?}");
+    // `xmake.value.kind`: an alias of values.
+    let target = complete(
+        "target('a')
+    set_kind('$')
+",
+    );
+    assert!(has(&target, "shared") && !has(&target, "library"), "{target:?}");
+    let vectorexts = complete(
+        "target('a')
+    add_vectorexts('$')
+",
+    );
+    assert!(has(&vectorexts, "avx2"), "{vectorexts:?}");
+    let toolset = complete(
+        "toolchain('t')
+    set_toolset('$')
+",
+    );
+    assert!(has(&toolset, "cxx"), "{toolset:?}");
+}

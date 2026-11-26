@@ -11,7 +11,7 @@ use crate::{ApiKind, Function, Instance, Scope, Stubs};
 
 /// The stubs of `name` to look in, best first: the APIs of `scope` and of
 /// the scopes visible from it, the globals, then every scope.
-fn candidates(scope: Option<Scope>, name: &str) -> Vec<&'static Function> {
+pub(crate) fn candidates(scope: Option<Scope>, name: &str) -> Vec<&'static Function> {
     let stubs = Stubs::get();
     let named: Vec<&'static Function> =
         stubs.functions().iter().filter(|f| f.name == name).collect();

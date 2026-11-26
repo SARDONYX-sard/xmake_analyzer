@@ -31,3 +31,5 @@ function addon.unregister() end
 function addon.versions() end
 
 function addon.workdir() end
+
+function addon.activate() end

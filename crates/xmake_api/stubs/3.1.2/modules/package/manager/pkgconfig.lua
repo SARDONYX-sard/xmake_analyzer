@@ -5,3 +5,5 @@
 local pkgconfig = {}
 
 function pkgconfig.find_package() end
+
+function pkgconfig.configurations() end

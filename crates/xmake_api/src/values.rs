@@ -66,6 +66,9 @@ impl ArgValues {
 /// scripts): some APIs mean other things in some scopes.
 pub fn scoped_arg_values(scope: Option<crate::Scope>, name: &str, arg: usize) -> Option<ArgValues> {
     use crate::Scope;
+    if let Some(values) = stub_arg_values(scope, name, arg) {
+        return Some(values);
+    }
     match (scope, name) {
         // The dependencies of a rule are rules; of a package, packages of
         // the repository.
@@ -78,6 +81,47 @@ pub fn scoped_arg_values(scope: Option<crate::Scope>, name: &str, arg: usize) ->
         ) => None,
         _ => arg_values(name, arg),
     }
+}
+
+/// The values of the `arg`-th argument of `name` from the type of its stub:
+/// an alias of values (`xmake.value.kind`, `xmake.value.platform`) or string
+/// literals (`"library"|"binary"`). The stubs of `scope` and of the scopes
+/// visible from it, and the globals, are looked in: not the APIs of other
+/// scopes, whose values differ (`set_kind` of a package).
+fn stub_arg_values(scope: Option<crate::Scope>, name: &str, arg: usize) -> Option<ArgValues> {
+    let visible = |f: &crate::Function| match (scope, f.scope) {
+        (_, None) => f.owner == crate::GLOBALS,
+        (Some(scope), Some((s, _))) => scope.visible_scopes().contains(&s),
+        (None, Some(_)) => false,
+    };
+    let function = crate::docs::candidates(scope, name)
+        .into_iter()
+        .find(|f| visible(f) && !f.params.is_empty())?;
+    let param = function.param_at(arg)?;
+    if !param.literals.is_empty() {
+        return Some(ArgValues::Fixed(&param.literals));
+    }
+    let stubs = crate::Stubs::get();
+    param.type_names().find_map(|name| {
+        let values = match name {
+            "xmake.value.platform" => ArgValues::Platforms,
+            "xmake.value.arch" => ArgValues::Architectures,
+            "xmake.value.mode" => ArgValues::Modes,
+            "xmake.value.rule" => ArgValues::Rules,
+            "xmake.value.policy" => ArgValues::Policies,
+            "xmake.value.toolchain" => ArgValues::Toolchains,
+            "xmake.value.target" => ArgValues::Targets,
+            "xmake.value.option" => ArgValues::Options,
+            "xmake.value.config" => ArgValues::Configs,
+            "xmake.value.package" => ArgValues::Packages,
+            "xmake.value.module" => ArgValues::ImportModules,
+            _ => {
+                let alias = stubs.alias(name).filter(|a| !a.values.is_empty())?;
+                ArgValues::Fixed(&alias.values)
+            }
+        };
+        Some(values)
+    })
 }
 
 /// The keys of the options table an API takes as last argument:

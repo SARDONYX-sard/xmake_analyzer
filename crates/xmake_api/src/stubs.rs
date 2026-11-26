@@ -49,6 +49,18 @@ pub struct Param {
     pub ty: &'static str,
     pub optional: bool,
     pub doc: &'static str,
+    /// The string literals of the type: `binary` of `"binary"|"static"`,
+    /// `(value, description)`.
+    pub literals: Vec<(&'static str, &'static str)>,
+}
+
+impl Param {
+    /// The parts of the type, `[]` removed: `xmake.value.kind` of
+    /// `xmake.value.kind|xmake.value.kind[]`.
+    pub fn type_names(&self) -> impl Iterator<Item = &'static str> {
+        let ty: &'static str = self.ty;
+        split_union(ty).into_iter().map(|p| p.trim().trim_end_matches("[]"))
+    }
 }
 
 /// A returned value of a stub function.
@@ -119,6 +131,12 @@ impl Function {
         push_params(&mut out, &self.params);
         push_returns(&mut out, &self.returns);
         out
+    }
+
+    /// The parameter the `index`-th argument fills: the last one when it is
+    /// `...`.
+    pub fn param_at(&self, index: usize) -> Option<&Param> {
+        self.params.get(index).or_else(|| self.params.last().filter(|p| p.name == "..."))
     }
 
     /// Whether the stub types or documents the function: not only listed by
@@ -616,7 +634,13 @@ impl Annotations {
                 let name = name.trim_end_matches('?');
                 let doc = doc.trim();
                 if tag == "param" {
-                    self.params.push(Param { name, ty, optional, doc });
+                    let literals = split_union(ty)
+                        .into_iter()
+                        .map(|p| p.trim().trim_end_matches("[]"))
+                        .filter(|p| p.len() >= 2 && p.starts_with('"') && p.ends_with('"'))
+                        .map(|p| (&p[1..p.len() - 1], ""))
+                        .collect();
+                    self.params.push(Param { name, ty, optional, doc, literals });
                 } else {
                     self.fields.push(Field { name, ty, optional, doc });
                 }
@@ -667,7 +691,8 @@ pub fn class_of(ty: &str) -> Option<&str> {
 
 /// A LuaCATS type in the notation of the manual, which the prototypes use:
 /// `string|string[]` is `string|array`, `fun(target: target)` is
-/// `function (target)`, the aliases of values are `string`.
+/// `function (target)`. The aliases of values (`xmake.value.kind`) and the
+/// literals (`"binary"`) are kept: they tell the values.
 pub fn manual_type(ty: &str) -> String {
     let mut parts: Vec<String> = Vec::new();
     // `fun(target: target)|string`: a script, or its name; the manual says
@@ -696,8 +721,6 @@ pub fn manual_type(ty: &str) -> String {
             } else {
                 format!("function ({})", names.join(", "))
             }
-        } else if part.starts_with("xmake.value.") {
-            "string".to_owned()
         } else {
             part.to_owned()
         };
@@ -709,7 +732,7 @@ pub fn manual_type(ty: &str) -> String {
 }
 
 /// The parts of a union, `|` inside brackets kept.
-fn split_union(ty: &str) -> Vec<&str> {
+pub(crate) fn split_union(ty: &str) -> Vec<&str> {
     let (mut out, mut depth, mut start) = (Vec::new(), 0i32, 0);
     for (i, c) in ty.char_indices() {
         match c {
@@ -835,6 +858,6 @@ mod tests {
         assert_eq!(class_of("table<string, target>"), None);
         assert_eq!(manual_type("string|string[]"), "string|array");
         assert_eq!(manual_type("fun(target: target)|string"), "function (target)");
-        assert_eq!(manual_type("xmake.value.kind"), "string");
+        assert_eq!(manual_type("xmake.value.kind"), "xmake.value.kind");
     }
 }

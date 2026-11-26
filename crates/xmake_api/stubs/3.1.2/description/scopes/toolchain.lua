@@ -180,7 +180,7 @@ function toolchain_values.set_description(description, ...) end
 ---@see https://xmake.io/api/description/package-dependencies.html#set-homepage
 function toolchain_values.set_homepage(url) end
 
----@param kind string Toolchain type: "standalone"
+---@param kind "standalone" Toolchain type: "standalone"
 ---@see https://xmake.io/api/description/custom-toolchain.html#set-kind
 function toolchain_values.set_kind(kind) end
 
@@ -209,7 +209,7 @@ function toolchain_keyvalues.add_toolset() end
 ---@see https://xmake.io/api/description/xpack-interfaces.html#set-formats
 function toolchain_keyvalues.set_formats(formats, ...) end
 
----@param tool string Tool name string (cc, cxx, ld, sh, ar, ex, strip, mm, mxx, as)
+---@param tool xmake.value.toolkind Tool name string (cc, cxx, ld, sh, ar, ex, strip, mm, mxx, as)
 ---@param tools string|string[] Tool program name string or array
 ---@param ... string|string[] Variable parameters, can pass multiple tool names
 ---@see https://xmake.io/api/description/custom-toolchain.html#set-toolset
