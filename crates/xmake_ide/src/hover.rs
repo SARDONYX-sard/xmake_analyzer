@@ -200,9 +200,11 @@ fn with_members(project: &Project, signature: &str, owner: &str, script: bool) -
     if let Some(module) = project.db.module(owner, script) {
         members.extend(module.functions.iter().map(|f| (f.to_string(), "function")));
     }
-    // `core.base.json.decode`: the functions of an importable module.
+    // `core.base.json.decode`: the functions of an importable module (not
+    // `target.action` for the class `target`).
     let prefix = format!("{owner}.");
-    for api in project.db.extension_apis() {
+    let is_instance = xmake_api::Instance::parse(owner).is_some();
+    for api in project.db.extension_apis().iter().filter(|_| !is_instance) {
         if let Some(rest) = api.strip_prefix(&prefix) {
             let name = rest.split('.').next().unwrap_or(rest);
             members.push((name.to_owned(), if rest.contains('.') { "table" } else { "function" }));
@@ -239,7 +241,8 @@ fn binding_hover(project: &Project, file: &AnalyzedFile, binding: &Binding<'_>) 
                 _ => {
                     let ty = ty();
                     let signature = format!("local {name}: {ty}");
-                    match ty.owner().filter(|_| ty.module().is_some() || ty.class().is_some()) {
+                    // A module: its members. Not an instance: hundreds of methods.
+                    match ty.module() {
                         Some(owner) => with_members(project, &signature, owner, true),
                         None => signature,
                     }
@@ -945,29 +948,43 @@ mod tests {
 
     #[test]
     fn members_of_tables() {
-        let os = hover_at("target('a')
+        let os = hover_at(
+            "target('a')
   on_load(function (t)
     o$s.cp('a', 'b')
   end)
-")
-            .expect("os");
-        assert!(os.contains("os: os {
-") && os.contains("    cp: function,"), "{os}");
+",
+        )
+        .expect("os");
+        assert!(
+            os.contains(
+                "os: os {
+"
+            ) && os.contains("    cp: function,"),
+            "{os}"
+        );
         assert!(os.contains("...(+"), "{os}");
-        let json = hover_at("target('a')
+        let json = hover_at(
+            "target('a')
   on_load(function (t)
     import('core.base.json')
     js$on.decode('{}')
   end)
-")
-            .expect("json");
-        assert!(json.contains("local json: core.base.json {") && json.contains("    decode: function,"), "{json}");
-        let local = hover_at("target('a')
+",
+        )
+        .expect("json");
+        assert!(
+            json.contains("local json: core.base.json {") && json.contains("    decode: function,"),
+            "{json}"
+        );
+        let local = hover_at(
+            "target('a')
   on_load(function (t)
     local c$m = import('package.tools.cmake')
   end)
-")
-            .expect("local");
+",
+        )
+        .expect("local");
         assert!(local.contains("    install: function,"), "{local}");
     }
 
@@ -1268,7 +1285,8 @@ on_build(pattern: string, ...: string, script: fun(target: target)|string)"
         let builtin = hover_at("---@param s str$ing\nlocal function f(s) end");
         assert!(builtin.starts_with("```lua\n(type) string\n```"), "{builtin}");
         let class = hover_at("---@type tar$get\nlocal t");
-        assert!(class.starts_with("```lua\n(class) target\n```"), "{class}");
+        assert!(class.starts_with("```lua\n(class) target {\n"), "{class}");
+        assert!(!class.contains("action: table"), "{class}");
         let own = hover_at("---@class Point: table\n---@type Poi$nt\nlocal p = {}");
         assert_eq!(own, "```lua\n---@class Point: table\n```");
     }

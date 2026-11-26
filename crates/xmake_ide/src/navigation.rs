@@ -316,10 +316,8 @@ fn stub_type_at<'a>(file: &AnalyzedFile, offset: TextSize) -> Option<NavTarget<'
         return None;
     }
     let stubs = xmake_api::Stubs::get();
-    let location = stubs
-        .alias(name)
-        .map(|a| a.location)
-        .or_else(|| stubs.class(name).map(|c| c.location))?;
+    let location =
+        stubs.alias(name).map(|a| a.location).or_else(|| stubs.class(name).map(|c| c.location))?;
     let path = stubs.path_of(location)?;
     Some(NavTarget { path: Cow::Owned(path), range: location.range })
 }
@@ -868,11 +866,14 @@ local function f(k, t) end
         let at = |needle: &str| {
             let found = goto_definition(&p, &file, &path, offset_of(text, needle));
             let target = found.first().unwrap_or_else(|| panic!("{needle}"));
-            target.path.to_string_lossy().replace('\', "/")
+            target.path.to_string_lossy().replace('\\', "/")
         };
         assert!(at("value.kind").ends_with("types/values.lua"));
-        assert!(at("target
-").ends_with("script/instances/target.lua"));
+        assert!(
+            at("target
+")
+            .ends_with("script/instances/target.lua")
+        );
     }
 
     #[test]
