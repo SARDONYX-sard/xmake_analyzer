@@ -1114,7 +1114,10 @@ end)",
 
         let import = hover_at("target('a')\non_load(function (t) im$port('core.base.json') end)")
             .expect("import");
-        assert!(import.contains("import(name: string, opt?: {alias?: string"), "{import}");
+        assert!(
+            import.contains("import(name: xmake.value.module, opt?: {alias?: string"),
+            "{import}"
+        );
 
         let ipairs = hover_at("for i, v in ipa$irs({}) do end").expect("ipairs");
         assert!(

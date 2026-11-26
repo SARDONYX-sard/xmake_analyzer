@@ -68,8 +68,8 @@ function target_values.add_dcflags(dcflags, ...) end
 ---@see https://xmake.io/api/description/project-target.html#add-defines
 function target_values.add_defines(defines, ...) end
 
----@param deps string|string[] Dependency target name string or array, supports wildcard matching patterns
----@param ... string|string[] Variable parameters, can pass multiple dependency target name strings
+---@param deps xmake.value.target|xmake.value.target[] Dependency target name string or array, supports wildcard matching patterns
+---@param ... xmake.value.target|xmake.value.target[] Variable parameters, can pass multiple dependency target name strings
 ---@param opts? {inherit?: any}
 ---@see https://xmake.io/api/description/project-target.html#add-deps
 function target_values.add_deps(deps, ...) end
@@ -154,8 +154,8 @@ function target_values.add_ncflags() end
 ---@see https://xmake.io/api/description/project-target.html#add-options
 function target_values.add_options() end
 
----@param packages string|string[] Package name string or array, supports wildcard matching patterns
----@param ... string|string[] Variable parameters, can pass multiple package name strings
+---@param packages xmake.value.package|xmake.value.package[] Package name string or array, supports wildcard matching patterns
+---@param ... xmake.value.package|xmake.value.package[] Variable parameters, can pass multiple package name strings
 ---@param opts? {private?: any}
 ---@see https://xmake.io/api/description/project-target.html#add-packages
 function target_values.add_packages(packages, ...) end
@@ -174,8 +174,8 @@ function target_values.add_rcflags(rcflags, ...) end
 ---@see https://xmake.io/api/description/project-target.html#add-rpathdirs
 function target_values.add_rpathdirs(rpathdirs, ...) end
 
----@param rules string|string[] Rule name string or array, such as "markdown"
----@param ... string|string[] Variable parameters, can pass multiple rule name strings
+---@param rules xmake.value.rule|xmake.value.rule[] Rule name string or array, such as "markdown"
+---@param ... xmake.value.rule|xmake.value.rule[] Variable parameters, can pass multiple rule name strings
 ---@param opts? {private?: any}
 ---@see https://xmake.io/api/description/project-target.html#add-rules
 function target_values.add_rules(rules, ...) end
@@ -224,7 +224,7 @@ function target_values.add_vectorexts(vectorexts, ...) end
 ---@see https://xmake.io/api/description/project-target.html#add-zcflags
 function target_values.add_zcflags(zcflags, ...) end
 
----@param arch string Architecture name string, such as "x86", "x64", "arm64", "armv7"
+---@param arch xmake.value.arch Architecture name string, such as "x86", "x64", "arm64", "armv7"
 ---@see https://xmake.io/api/description/project-target.html#set-arch
 function target_values.set_arch(arch) end
 
@@ -240,13 +240,13 @@ function target_values.set_default(default) end
 ---@see https://xmake.io/api/description/project-target.html#set-enabled
 function target_values.set_enabled(enabled) end
 
----@param encodings string|string[] Encoding string or array, such as "utf-8", "gb2312"
----@param ... string|string[] Variable parameters, can pass multiple encoding strings
+---@param encodings xmake.value.encoding|xmake.value.encoding[] Encoding string or array, such as "utf-8", "gb2312"
+---@param ... xmake.value.encoding|xmake.value.encoding[] Variable parameters, can pass multiple encoding strings
 ---@see https://xmake.io/api/description/project-target.html#set-encodings
 function target_values.set_encodings(encodings, ...) end
 
----@param exceptions string|string[] Exception mode string or array, such as "cxx", "objc", "no-cxx"
----@param ... string|string[] Variable parameters, can pass multiple exception mode strings
+---@param exceptions xmake.value.exception|xmake.value.exception[] Exception mode string or array, such as "cxx", "objc", "no-cxx"
+---@param ... xmake.value.exception|xmake.value.exception[] Variable parameters, can pass multiple exception mode strings
 ---@see https://xmake.io/api/description/project-target.html#set-exceptions
 function target_values.set_exceptions(exceptions, ...) end
 
@@ -258,8 +258,8 @@ function target_values.set_extension(extension) end
 ---@see https://xmake.io/api/description/project-target.html#set-filename
 function target_values.set_filename(filename) end
 
----@param fpmodels string|string[] Float-point mode string or array, optional values: fast, strict, except, precise
----@param ... string|string[] Variable parameters, can pass multiple float-point mode strings
+---@param fpmodels xmake.value.fpmodel|xmake.value.fpmodel[] Float-point mode string or array, optional values: fast, strict, except, precise
+---@param ... xmake.value.fpmodel|xmake.value.fpmodel[] Variable parameters, can pass multiple float-point mode strings
 ---@param opts? {private?: any}
 ---@see https://xmake.io/api/description/project-target.html#set-fpmodels
 function target_values.set_fpmodels(fpmodels, ...) end
@@ -268,12 +268,12 @@ function target_values.set_fpmodels(fpmodels, ...) end
 ---@see https://xmake.io/api/description/project-target.html#set-group
 function target_values.set_group(group) end
 
----@param kind string Target type string, specifies the type of compilation target
+---@param kind xmake.value.kind Target type string, specifies the type of compilation target
 ---@see https://xmake.io/api/description/project-target.html#set-kind
 function target_values.set_kind(kind) end
 
----@param languages string|string[] Language standard string or array, supports wildcard matching patterns
----@param ... string|string[] Variable parameters, can pass multiple language standard strings
+---@param languages xmake.value.language|xmake.value.language[] Language standard string or array, supports wildcard matching patterns
+---@param ... xmake.value.language|xmake.value.language[] Variable parameters, can pass multiple language standard strings
 ---@param opts? {private?: any}
 ---@see https://xmake.io/api/description/project-target.html#set-languages
 function target_values.set_languages(languages, ...) end
@@ -282,16 +282,16 @@ function target_values.set_languages(languages, ...) end
 ---@see https://xmake.io/api/description/xpack-interfaces.html#set-license
 function target_values.set_license(license) end
 
----@param optimize string Optimization level string, optional values: none, fast, faster, fastest, smallest, aggressive
+---@param optimize xmake.value.optimize Optimization level string, optional values: none, fast, faster, fastest, smallest, aggressive
 ---@see https://xmake.io/api/description/project-target.html#set-optimize
 function target_values.set_optimize(optimize) end
 
----@param options string|string[] Option name string or array, supports wildcard matching patterns
----@param ... string|string[] Variable parameters, can pass multiple option name strings
+---@param options xmake.value.option|xmake.value.option[] Option name string or array, supports wildcard matching patterns
+---@param ... xmake.value.option|xmake.value.option[] Variable parameters, can pass multiple option name strings
 ---@see https://xmake.io/api/description/project-target.html#set-options
 function target_values.set_options(options, ...) end
 
----@param plat string Platform name string, such as "linux", "macosx", "windows", "android"
+---@param plat xmake.value.platform Platform name string, such as "linux", "macosx", "windows", "android"
 ---@see https://xmake.io/api/description/project-target.html#set-plat
 function target_values.set_plat(plat) end
 
@@ -310,12 +310,12 @@ function target_values.set_rules() end
 ---@see https://xmake.io/api/description/project-target.html#set-runargs
 function target_values.set_runargs(runargs, ...) end
 
----@param runtimes string|string[] Runtime library string or array, such as "MT", "MD", "MTd", "MDd"
----@param ... string|string[] Variable parameters, can pass multiple runtime library strings
+---@param runtimes xmake.value.runtime|xmake.value.runtime[] Runtime library string or array, such as "MT", "MD", "MTd", "MDd"
+---@param ... xmake.value.runtime|xmake.value.runtime[] Variable parameters, can pass multiple runtime library strings
 ---@see https://xmake.io/api/description/project-target.html#set-runtimes
 function target_values.set_runtimes(runtimes, ...) end
 
----@param strip string Strip mode string, optional values: debug, all
+---@param strip xmake.value.strip Strip mode string, optional values: debug, all
 ---@see https://xmake.io/api/description/project-target.html#set-strip
 function target_values.set_strip(strip) end
 
@@ -323,13 +323,13 @@ function target_values.set_strip(strip) end
 ---@see https://xmake.io/api/description/project-target.html#set-suffixname
 function target_values.set_suffixname(suffixname) end
 
----@param symbols string Symbol mode string, optional values: debug, hidden, none
+---@param symbols xmake.value.symbol Symbol mode string, optional values: debug, hidden, none
 ---@param opts? {private?: any}
 ---@see https://xmake.io/api/description/project-target.html#set-symbols
 function target_values.set_symbols(symbols, opts) end
 
----@param toolchains string|string[] Toolchain name string or array, such as "gcc", "clang", "msvc", "ndk[gcc]", "mingw[clang]@llvm-mingw", "msvc[vs=2025]"
----@param ... string|string[] Variable parameters, can pass multiple toolchain name strings
+---@param toolchains xmake.value.toolchain|xmake.value.toolchain[] Toolchain name string or array, such as "gcc", "clang", "msvc", "ndk[gcc]", "mingw[clang]@llvm-mingw", "msvc[vs=2025]"
+---@param ... xmake.value.toolchain|xmake.value.toolchain[] Variable parameters, can pass multiple toolchain name strings
 ---@param opts? {vs?: any, plat?: any, arch?: any, clang?: any, gcc?: any, vs_sdkver?: any, vs_toolset?: any}
 ---@see https://xmake.io/api/description/project-target.html#set-toolchains
 function target_values.set_toolchains(toolchains, ...) end
@@ -339,7 +339,7 @@ function target_values.set_toolchains(toolchains, ...) end
 ---@see https://xmake.io/api/description/global-interfaces.html#set-version
 function target_values.set_version(version, opts) end
 
----@param warnings string Warning level string, optional values: none, less, more, all, error
+---@param warnings xmake.value.warning Warning level string, optional values: none, less, more, all, error
 ---@param opts? {private?: any}
 ---@see https://xmake.io/api/description/project-target.html#set-warnings
 function target_values.set_warnings(warnings, opts) end
@@ -499,7 +499,7 @@ function target_keyvalues.add_values(name, values, ...) end
 ---@see https://xmake.io/api/description/project-target.html#set-configvar
 function target_keyvalues.set_configvar(name, value) end
 
----@param policy string Policy name string, such as "check.auto_ignore_flags", "build.warning"
+---@param policy xmake.value.policy Policy name string, such as "check.auto_ignore_flags", "build.warning"
 ---@param value boolean Policy value, true means enable, false means disable
 ---@see https://xmake.io/api/description/project-target.html#set-policy
 function target_keyvalues.set_policy(policy, value) end

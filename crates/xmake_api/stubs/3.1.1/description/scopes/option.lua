@@ -241,7 +241,7 @@ function option_values.add_vectorexts(vectorexts, ...) end
 ---@see https://xmake.io/api/description/project-target.html#add-zcflags
 function option_values.add_zcflags(zcflags, ...) end
 
----@param category string Category name string
+---@param category xmake.value.category Category name string
 ---@see https://xmake.io/api/description/configuration-option.html#set-category
 function option_values.set_category(category) end
 
@@ -250,13 +250,13 @@ function option_values.set_category(category) end
 ---@see https://xmake.io/api/description/configuration-option.html#set-description
 function option_values.set_description(description, ...) end
 
----@param languages string|string[] Language standard string or array, supports wildcard matching patterns
----@param ... string|string[] Variable parameters, can pass multiple language standard strings
+---@param languages xmake.value.language|xmake.value.language[] Language standard string or array, supports wildcard matching patterns
+---@param ... xmake.value.language|xmake.value.language[] Variable parameters, can pass multiple language standard strings
 ---@param opts? {private?: any}
 ---@see https://xmake.io/api/description/project-target.html#set-languages
 function option_values.set_languages(languages, ...) end
 
----@param optimize string Optimization level string, optional values: none, fast, faster, fastest, smallest, aggressive
+---@param optimize xmake.value.optimize Optimization level string, optional values: none, fast, faster, fastest, smallest, aggressive
 ---@see https://xmake.io/api/description/project-target.html#set-optimize
 function option_values.set_optimize(optimize) end
 
@@ -269,7 +269,7 @@ function option_values.set_showmenu(showmenu) end
 ---@see https://xmake.io/api/description/configuration-option.html#set-values
 function option_values.set_values(values, ...) end
 
----@param warnings string Warning level string, optional values: none, less, more, all, error
+---@param warnings xmake.value.warning Warning level string, optional values: none, less, more, all, error
 ---@param opts? {private?: any}
 ---@see https://xmake.io/api/description/project-target.html#set-warnings
 function option_values.set_warnings(warnings, opts) end

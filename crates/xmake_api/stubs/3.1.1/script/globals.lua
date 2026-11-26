@@ -35,7 +35,7 @@ function cprint(format, ...) end
 --- - Only in scripts: description code (`xmake.lua` itself) has no `import`.
 --- - Modules next to the script are found by name: `import("modules.utils")`
 ---   loads `modules/utils.lua`.
----@param name string The module: `core.base.json`, `lib.detect.find_tool`, or a path next to the script.
+---@param name xmake.value.module The module: `core.base.json`, `lib.detect.find_tool`, or a path next to the script.
 ---@param opt? {alias?: string, rootdir?: string, try?: boolean, anonymous?: boolean}
 ---@return any module
 ---@see https://xmake.io/api/scripts/builtin-modules/import.html
@@ -303,17 +303,17 @@ function find_package() end
 
 function find_packages() end
 
----@param name string Configuration option name string
+---@param name xmake.value.config Configuration option name string
 ---@see https://xmake.io/api/description/global-interfaces.html#get-config
 function get_config(name) end
 
----@param configs string Configuration name string
----@param ... string Variable parameters, can pass multiple configuration names
+---@param configs xmake.value.config Configuration name string
+---@param ... xmake.value.config Variable parameters, can pass multiple configuration names
 ---@see https://xmake.io/api/description/conditions.html#has-config
 function has_config(configs, ...) end
 
----@param packages string Package name string
----@param ... string Variable parameters, can pass multiple package names
+---@param packages xmake.value.package Package name string
+---@param ... xmake.value.package Variable parameters, can pass multiple package names
 ---@see https://xmake.io/api/description/conditions.html#has-package
 function has_package(packages, ...) end
 
@@ -322,34 +322,34 @@ function inherit() end
 
 function irpairs() end
 
----@param arch string Architecture name string
----@param ... string Variable parameters, can pass multiple architecture names
+---@param arch xmake.value.arch Architecture name string
+---@param ... xmake.value.arch Variable parameters, can pass multiple architecture names
 ---@see https://xmake.io/api/description/conditions.html#is-arch
 function is_arch(arch, ...) end
 
----@param name string Configuration option name string
+---@param name xmake.value.config Configuration option name string
 ---@param values string Configuration value string
 ---@param ... string Variable parameters, can pass multiple values
 ---@see https://xmake.io/api/description/conditions.html#is-config
 function is_config(name, values, ...) end
 
----@param host string Host system name string
----@param ... string Variable parameters, can pass multiple host names
+---@param host xmake.value.platform Host system name string
+---@param ... xmake.value.platform Variable parameters, can pass multiple host names
 ---@see https://xmake.io/api/description/conditions.html#is-host
 function is_host(host, ...) end
 
----@param mode string Compilation mode name string
----@param ... string Variable parameters, can pass multiple mode names
+---@param mode xmake.value.mode Compilation mode name string
+---@param ... xmake.value.mode Variable parameters, can pass multiple mode names
 ---@see https://xmake.io/api/description/conditions.html#is-mode
 function is_mode(mode, ...) end
 
----@param plat string Platform name string
----@param ... string Variable parameters, can pass multiple platform names
+---@param plat xmake.value.platform Platform name string
+---@param ... xmake.value.platform Variable parameters, can pass multiple platform names
 ---@see https://xmake.io/api/description/conditions.html#is-plat
 function is_plat(plat, ...) end
 
----@param subhost string Subsystem name string
----@param ... string Variable parameters, can pass multiple subsystem names
+---@param subhost xmake.value.platform Subsystem name string
+---@param ... xmake.value.platform Variable parameters, can pass multiple subsystem names
 ---@see https://xmake.io/api/description/conditions.html#is-subhost
 function is_subhost(subhost, ...) end
 

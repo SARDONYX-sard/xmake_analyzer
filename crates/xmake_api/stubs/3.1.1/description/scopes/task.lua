@@ -10,7 +10,7 @@ function task_script.on_run(script) end
 ---@class xmake.task.values
 local task_values = {}
 
----@param category string Category name string
+---@param category xmake.value.category Category name string
 ---@see https://xmake.io/api/description/plugin-and-task.html#set-category
 function task_values.set_category(category) end
 

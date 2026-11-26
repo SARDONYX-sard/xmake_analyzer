@@ -211,8 +211,8 @@ function toolchain_values.set_homepage(url) end
 ---@see https://xmake.io/api/description/custom-toolchain.html#set-kind
 function toolchain_values.set_kind(kind) end
 
----@param runtimes string|string[] Runtime library string or array, such as "MT", "MD", "MTd", "MDd"
----@param ... string|string[] Variable parameters, can pass multiple runtime library strings
+---@param runtimes xmake.value.runtime|xmake.value.runtime[] Runtime library string or array, such as "MT", "MD", "MTd", "MDd"
+---@param ... xmake.value.runtime|xmake.value.runtime[] Variable parameters, can pass multiple runtime library strings
 ---@see https://xmake.io/api/description/project-target.html#set-runtimes
 function toolchain_values.set_runtimes(runtimes, ...) end
 

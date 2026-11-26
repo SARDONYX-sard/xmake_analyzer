@@ -198,27 +198,27 @@ function package_values.add_vectorexts(vectorexts, ...) end
 ---@see https://xmake.io/api/description/project-target.html#add-zcflags
 function package_values.add_zcflags(zcflags, ...) end
 
----@param arch string Architecture name string
----@param ... string Variable parameters, can pass multiple architecture names
+---@param arch xmake.value.arch Architecture name string
+---@param ... xmake.value.arch Variable parameters, can pass multiple architecture names
 ---@see https://xmake.io/api/description/conditions.html#is-arch
 function package_values.is_arch(arch, ...) end
 
----@param host string Host system name string
----@param ... string Variable parameters, can pass multiple host names
+---@param host xmake.value.platform Host system name string
+---@param ... xmake.value.platform Variable parameters, can pass multiple host names
 ---@see https://xmake.io/api/description/conditions.html#is-host
 function package_values.is_host(host, ...) end
 
----@param mode string Compilation mode name string
----@param ... string Variable parameters, can pass multiple mode names
+---@param mode xmake.value.mode Compilation mode name string
+---@param ... xmake.value.mode Variable parameters, can pass multiple mode names
 ---@see https://xmake.io/api/description/conditions.html#is-mode
 function package_values.is_mode(mode, ...) end
 
----@param plat string Platform name string
----@param ... string Variable parameters, can pass multiple platform names
+---@param plat xmake.value.platform Platform name string
+---@param ... xmake.value.platform Variable parameters, can pass multiple platform names
 ---@see https://xmake.io/api/description/conditions.html#is-plat
 function package_values.is_plat(plat, ...) end
 
----@param arch string Architecture name string, such as "x86", "x64", "arm64", "armv7"
+---@param arch xmake.value.arch Architecture name string, such as "x86", "x64", "arm64", "armv7"
 ---@see https://xmake.io/api/description/project-target.html#set-arch
 function package_values.set_arch(arch) end
 
@@ -253,7 +253,7 @@ function package_values.set_license(license) end
 
 function package_values.set_parallelize() end
 
----@param plat string Platform name string, such as "linux", "macosx", "windows", "android"
+---@param plat xmake.value.platform Platform name string, such as "linux", "macosx", "windows", "android"
 ---@see https://xmake.io/api/description/project-target.html#set-plat
 function package_values.set_plat(plat) end
 
@@ -292,7 +292,7 @@ function package_keyvalues.add_patches(version, url, hash) end
 
 function package_keyvalues.add_resources() end
 
----@param policy string Policy name string, such as "check.auto_ignore_flags", "build.warning"
+---@param policy xmake.value.policy Policy name string, such as "check.auto_ignore_flags", "build.warning"
 ---@param value boolean Policy value, true means enable, false means disable
 ---@see https://xmake.io/api/description/project-target.html#set-policy
 function package_keyvalues.set_policy(policy, value) end

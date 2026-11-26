@@ -128,8 +128,8 @@ function getenv() end
 ---@see https://xmake.io/api/description/global-interfaces.html#includes
 function includes(paths, ...) end
 
----@param subhost string Subsystem name string
----@param ... string Variable parameters, can pass multiple subsystem names
+---@param subhost xmake.value.platform Subsystem name string
+---@param ... xmake.value.platform Variable parameters, can pass multiple subsystem names
 ---@see https://xmake.io/api/description/conditions.html#is-subhost
 function is_subhost(subhost, ...) end
 
