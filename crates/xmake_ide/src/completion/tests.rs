@@ -311,3 +311,30 @@ fn module_functions_of_the_scope() {
         "join2"
     ));
 }
+
+#[test]
+fn members_of_imported_modules() {
+    // The call itself, a local bound to it, the name `import` binds.
+    for text in [
+        "target('a')
+ on_install(function (t)
+ import('package.tools.cmake').$
+ end)
+",
+        "target('a')
+ on_install(function (t)
+ import('package.tools.cmake')
+ cmake.$
+ end)
+",
+        "target('a')
+ on_install(function (t)
+ local c = import('package.tools.cmake')
+ c.$
+ end)
+",
+    ] {
+        let labels = complete(text);
+        assert!(has(&labels, "install"), "{text}: {labels:?}");
+    }
+}

@@ -28,8 +28,8 @@ use std::borrow::Cow;
 
 pub use crate::{
     docs::{
-        api_doc, doc_link, doc_prototype, generated_api_doc, generated_member_doc, instance_doc,
-        member_link, module_doc, prototype_params, summary,
+        api_doc, api_stub, doc_link, doc_prototype, generated_api_doc, generated_member_doc,
+        instance_doc, member_link, module_doc, prototype_params, summary,
     },
     overlay::{ListKind, OverlayError},
     signature::{api_params, render_signature},

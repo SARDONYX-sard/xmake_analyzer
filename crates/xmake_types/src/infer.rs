@@ -115,10 +115,24 @@ fn infer<'a>(
             _ => Type::Unknown,
         },
         SyntaxKind::CALL_EXPR | SyntaxKind::METHOD_CALL_EXPR => {
-            nth_return(project, file, node, 0, depth)
+            imported_module(file, node).unwrap_or_else(|| nth_return(project, file, node, 0, depth))
         }
         _ => Type::Unknown,
     }
+}
+
+/// `import("package.tools.cmake")`: the module, as its value.
+fn imported_module<'a>(file: &'a AnalyzedFile, call: SyntaxNode<'a>) -> Option<Type<'a>> {
+    let call = CallExpr::cast(call)?;
+    let name = NameRef::cast(call.callee()?)?.ident()?;
+    if name.text() != "import" || resolve(file, name).is_some() {
+        return None;
+    }
+    let token = xmake_syntax::ast::Literal::cast(call.arg(0)?)?.token()?;
+    if token.kind() != SyntaxKind::STRING {
+        return None;
+    }
+    Some(Type::Module(&file.text[xmake_project::outline::content_range(token)]))
 }
 
 /// `{"a", "b"}` is a `string[]`; tables with keys are `table`s.

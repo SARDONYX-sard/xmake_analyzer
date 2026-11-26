@@ -193,6 +193,10 @@ pub fn goto_definition<'a>(
     if let Some(target) = module_member_at(project, file, offset) {
         return vec![target];
     }
+    // `set_kind`, `os.cp`, `target:name`: their stubs.
+    if let Some(target) = stub_at(project, file, offset) {
+        return vec![target];
+    }
     let Some((symbol, _)) = symbol_at(file, offset) else {
         return Vec::new();
     };
@@ -246,6 +250,49 @@ fn goto_files<'a>(
         .into_iter()
         .map(|p| NavTarget { path: Cow::Owned(p), range: TextRange::default() })
         .collect()
+}
+
+/// The stub of the API, function or method at `offset`, in the files of the
+/// stubs.
+fn stub_at<'a>(project: &Project, file: &AnalyzedFile, offset: TextSize) -> Option<NavTarget<'a>> {
+    use xmake_api::Stubs;
+    let token = token_at(file, offset).filter(|t| t.kind() == SyntaxKind::IDENT)?;
+    let parent = token.parent()?;
+    let stubs = Stubs::get();
+    let function = match parent.kind() {
+        SyntaxKind::NAME_REF if resolve(file, token).is_none() => {
+            let in_field = parent
+                .parent()
+                .and_then(xmake_syntax::ast::FieldExpr::cast)
+                .is_some_and(|f| f.field().is_some_and(|t| t == token));
+            if in_field {
+                return None;
+            }
+            let scope = match crate::CodeContext::at(file, offset) {
+                crate::CodeContext::Description(scope) => Some(scope),
+                crate::CodeContext::Script => None,
+            };
+            xmake_api::api_stub(scope, token.text())?
+        }
+        // `os.cp`, `json.decode`, `import("a.b").f`
+        SyntaxKind::FIELD_EXPR => {
+            let field = xmake_syntax::ast::FieldExpr::cast(parent)?;
+            if field.field()? != token {
+                return None;
+            }
+            let owner = xmake_types::type_of(project, file, field.base()?).owner()?;
+            stubs.find(owner, token.text())?
+        }
+        // `target:name()`
+        SyntaxKind::METHOD_CALL_EXPR => {
+            let call = xmake_syntax::ast::MethodCallExpr::cast(parent)?;
+            let owner = xmake_types::type_of(project, file, call.receiver()?).owner()?;
+            stubs.find(owner, token.text())?
+        }
+        _ => return None,
+    };
+    let path = stubs.path_of(function.location)?;
+    Some(NavTarget { path: Cow::Owned(path), range: function.location.range })
 }
 
 /// `greet` in `utils.greet` with `utils` a module of the project.
@@ -308,8 +355,10 @@ pub(crate) fn string_files(
             (false, crate::paths::resolve_include(dir, &value))
         }
         "import" if index == 0 => {
-            let found: Vec<PathBuf> =
-                crate::modules::module_path(dir, &value).into_iter().collect();
+            let found: Vec<PathBuf> = crate::modules::module_path(dir, &value)
+                .into_iter()
+                .chain(stub_module(&value))
+                .collect();
             if found.is_empty() {
                 // `lib.detect.find_program`: a module of xmake.
                 return Some(StringFiles { package: false, glob, module: true, files: found });
@@ -328,6 +377,13 @@ pub(crate) fn string_files(
         files
     };
     Some(StringFiles { package, glob, module: false, files })
+}
+
+/// The stub of the importable module `module`: `modules/core/base/json.lua`.
+fn stub_module(module: &str) -> Option<PathBuf> {
+    let dir = xmake_api::Stubs::get().dir()?;
+    let path = dir.join(xmake_api::render::module_file(module));
+    path.is_file().then_some(path)
 }
 
 /// The strings naming one file (`includes("sub")`, `import("utils")`,
@@ -633,9 +689,11 @@ target('app')
         assert!(sources[0].path.ends_with("main.c"));
 
         // One file: a link; a glob: none, its files are in the hover.
+        // A module of xmake: its stub.
         let links = document_links(&p, &file, &path);
-        assert_eq!(links.len(), 1);
+        assert_eq!(links.len(), 2);
         assert_eq!(&text[links[0].0], "../common.lua");
+        assert!(links[1].1.ends_with("find_program.lua"), "{:?}", links[1].1);
         let hover = crate::hover(&p, &file, offset_of(text, "src/")).expect("hover").markdown;
         assert!(hover.starts_with("1 file:"), "{hover}");
         assert!(hover.contains("main.c](file:///"), "{hover}");
@@ -746,6 +804,30 @@ task_end()
             refs.iter().map(|r| r.path.display().to_string()).collect::<Vec<_>>()
         );
         let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn stubs() {
+        let text = "target('a')
+  set_kind('binary')
+  on_load(function (t)
+    os.cp('a', 'b')
+    t:name()
+    import('core.base.json')
+  end)
+";
+        let path = PathBuf::from("/p/xmake.lua");
+        let mut p = project(&[]);
+        let file = p.set_file(path.clone(), Arc::from(text));
+        let at = |needle: &str| {
+            let found = goto_definition(&p, &file, &path, offset_of(text, needle));
+            let target = found.first().unwrap_or_else(|| panic!("{needle}"));
+            target.path.to_string_lossy().replace('\\', "/")
+        };
+        assert!(at("set_kind").ends_with("description/scopes/target.lua"));
+        assert!(at("cp(").ends_with("script/os.lua"));
+        assert!(at("name()").ends_with("script/instances/target.lua"));
+        assert!(at("core.base").ends_with("modules/core/base/json.lua"));
     }
 
     #[test]

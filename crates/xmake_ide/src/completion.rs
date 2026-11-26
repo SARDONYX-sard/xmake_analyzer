@@ -536,11 +536,7 @@ fn member_completions<'a>(
     let chain_start = before.len() - chain_len;
     let chain = &file.text[chain_start..before.len()];
     let mut segments = chain.split('.');
-    let Some(head) = segments.next().filter(|h| !h.is_empty()) else {
-        return;
-    };
-    let rest_start = (head.len() + 1).min(chain.len());
-    let rest = &chain[rest_start..];
+    let head = segments.next().filter(|h| !h.is_empty());
 
     // Typed members first: `dep:` after `local dep = target:dep("x")`.
     let receiver = crate::types::expression_before(file, TextSize::new(before.len() as u32));
@@ -553,8 +549,14 @@ fn member_completions<'a>(
         let script = CodeContext::at(file, offset).is_script();
         let module = (!script).then(|| project.db.module(owner, false)).flatten();
         let available = |name: &str| module.is_none_or(|m| m.functions.iter().any(|f| f == name));
-        for function in xmake_api::Stubs::get()
-            .members(owner)
+        // A module: every function, typed or only listed.
+        let stubs = xmake_api::Stubs::get();
+        let members: Box<dyn Iterator<Item = &xmake_api::Function>> = if ty.module().is_some() {
+            Box::new(stubs.all_members(owner))
+        } else {
+            Box::new(stubs.members(owner))
+        };
+        for function in members
             .filter(|f| f.method == method || is_string && method)
             .filter(|f| available(f.name))
         {
@@ -573,6 +575,12 @@ fn member_completions<'a>(
         }
     }
 
+    // `import("a.b").`: a call, typed only.
+    let Some(head) = head else {
+        return;
+    };
+    let rest_start = (head.len() + 1).min(chain.len());
+    let rest = &chain[rest_start..];
     let db = &project.db;
     let binding = visible_bindings(file, offset).into_iter().find(|b| b.name == head);
     match binding.map(|b| b.kind) {

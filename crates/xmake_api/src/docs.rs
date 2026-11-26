@@ -45,6 +45,12 @@ fn lookup(
     candidates(scope, name).into_iter().find(|f| has(f))
 }
 
+/// The stub of the API or global function `name`, in `scope` when given:
+/// for go-to-definition.
+pub fn api_stub(scope: Option<Scope>, name: &str) -> Option<&'static Function> {
+    candidates(scope, name).into_iter().next()
+}
+
 /// The page of a description API or a script function, in `scope` when
 /// given: the documentation of the API in `scope`, else the shared one
 /// (`xmake.api`), else that of a global.

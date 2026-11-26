@@ -109,7 +109,20 @@ fn locations(server: &Server, targets: Vec<NavTarget<'_>>) -> Vec<Location> {
         .map(|t| {
             let range = match server.project.file(&t.path) {
                 Some(file) => conv::range(file, t.range),
-                // A file that is not loaded: its start.
+                // A file that is not loaded (a stub): read for the range.
+                None if t.range != xmake_ide::TextRange::default() => {
+                    match std::fs::read_to_string(&t.path) {
+                        Ok(text) => {
+                            let file = xmake_ide::AnalyzedFile::new(
+                                std::sync::Arc::from(text),
+                                "stub.lua",
+                                xmake_ide::xmake_syntax::Dialect::XMAKE_DEFAULT,
+                            );
+                            conv::range(&file, t.range)
+                        }
+                        Err(_) => lsp_types::Range::default(),
+                    }
+                }
                 None => lsp_types::Range::default(),
             };
             Location { uri: conv::path_to_uri(&t.path), range }
