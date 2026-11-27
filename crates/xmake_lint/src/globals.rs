@@ -215,6 +215,38 @@ pub(crate) fn unused_locals<'a>(file: &'a AnalyzedFile, out: &mut Vec<Diagnostic
             used.insert((binding.range.start().into(), binding.range.end().into()));
         }
     }
+    // `import("core.base.option")` and no `option` after.
+    for stmt in root.descendants().filter(|n| n.kind() == SyntaxKind::CALL_STMT) {
+        let Some(binding) = xmake_project::import_binding(stmt) else {
+            continue;
+        };
+        let range = binding.range;
+        if binding.name.starts_with('_')
+            || used.contains(&(range.start().into(), range.end().into()))
+        {
+            continue;
+        }
+        // The line of the statement, removed.
+        let text = &*file.text;
+        let start = text[..usize::from(stmt.text_range().start())].rfind('\n').map_or(0, |i| i + 1);
+        let end = usize::from(stmt.text_range().end());
+        let end = text[end..].find('\n').map_or(text.len(), |i| end + i + 1);
+        let only = text[start..usize::from(stmt.text_range().start())].trim().is_empty()
+            && text[usize::from(stmt.text_range().end())..end].trim().is_empty();
+        let fix = only.then(|| Fix {
+            title: Cow::Owned(format!("Remove the import of `{}`", binding.name)),
+            range: xmake_syntax::TextRange::new((start as u32).into(), (end as u32).into()),
+            replacement: Cow::Borrowed(""),
+            safe: false,
+        });
+        out.push(Diagnostic {
+            range,
+            severity: Severity::Warning,
+            message: Cow::Owned(format!("unused import `{}`", binding.name)),
+            code: "unused-import",
+            fixes: fix.into_iter().collect(),
+        });
+    }
     for node in root.descendants() {
         let declared: Vec<Name<'_>> = match node.kind() {
             SyntaxKind::LOCAL_STMT => local_names(node),

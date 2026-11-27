@@ -119,6 +119,14 @@ fn symbol_at(file: &AnalyzedFile, offset: TextSize) -> Option<(Symbol<'_>, TextR
         }
         SyntaxKind::STRING | SyntaxKind::LONG_STRING => {
             let (call, index) = enclosing_call(token)?;
+            // `import("core.base.option")`: the declaration of `option`.
+            let stmt = call.syntax().parent().filter(|p| p.kind() == SyntaxKind::CALL_STMT);
+            if index == 0
+                && let Some(binding) = stmt.and_then(xmake_project::import_binding)
+                && binding.range == content_range(token)
+            {
+                return Some((Symbol::Lua { range: binding.range }, binding.range));
+            }
             let kind = ProjectName::of_arg(file, call, index)?;
             let value = Literal::cast(token.parent()?)?.string_value()?;
             let name = match kind {
@@ -524,7 +532,8 @@ pub fn references<'a>(
 /// The declaration at `declaration` and the names referring to it.
 fn lua_references(file: &AnalyzedFile, declaration: TextRange) -> Vec<TextRange> {
     let root = file.root();
-    let name = &file.text[declaration];
+    // `option` of `import("core.base.option")`.
+    let name = xmake_project::declared_name(file, declaration);
     let mut out = vec![declaration];
     let idents =
         root.descendant_tokens().filter(|t| t.kind() == SyntaxKind::IDENT && t.text() == name);
@@ -865,6 +874,22 @@ task_end()
             refs.iter().map(|r| r.path.display().to_string()).collect::<Vec<_>>()
         );
         let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn references_of_imports() {
+        let text = "target('a')\n  on_load(function (t)\n    import('core.base.option')\n    option.get('v')\n    print(option.get('x'))\n  end)\n";
+        let path = PathBuf::from("/p/xmake.lua");
+        let mut p = project(&[]);
+        let file = p.set_file(path.clone(), Arc::from(text));
+        // From a use and from the module: the import and both uses.
+        for at in
+            [offset_of(text, "option.get('v')"), offset_of(text, "base.option") + TextSize::new(5)]
+        {
+            let found: Vec<&str> =
+                references(&p, &file, &path, at).iter().map(|t| &text[t.range]).collect();
+            assert_eq!(found, ["core.base.option", "option", "option"], "{at:?}");
+        }
     }
 
     #[test]

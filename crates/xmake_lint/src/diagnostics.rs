@@ -517,6 +517,24 @@ target("app")
     }
 
     #[test]
+    fn unused_imports() {
+        let text = r#"target("a")
+    on_load(function (t)
+        import("core.base.option")
+        import("core.base.json")
+        import("core.project.config", {alias = "cfg"})
+        print(json.encode({}), cfg.get("mode"))
+    end)
+"#;
+        assert_eq!(check(text, LuaVersion::Lua54), ["core.base.option unused import `option`"]);
+        let mut project = Project::new(ApiDb::builtin(), Dialect::XMAKE_DEFAULT);
+        let file = project.set_file(PathBuf::from("xmake.lua"), Arc::from(text));
+        let diags = diagnostics(&project, &file, &crate::LintLevels::default());
+        let fix = &diags[0].fixes[0];
+        assert_eq!(&text[fix.range], "        import(\"core.base.option\")\n");
+    }
+
+    #[test]
     fn functions_of_imported_modules() {
         let text = r#"---@param project core.project.project
 local function _f(project)

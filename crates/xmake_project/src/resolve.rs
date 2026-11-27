@@ -163,8 +163,21 @@ fn global_functions<'a>(root: SyntaxNode<'a>, out: &mut Vec<Binding<'a>>) {
     }
 }
 
+/// The name a declaration at `declaration` binds: the name itself, or
+/// `option` for the module of `import("core.base.option")`.
+pub fn declared_name(file: &AnalyzedFile, declaration: TextRange) -> &str {
+    let token = file.root().token_at_offset(declaration.start()).right_biased();
+    let stmt = token
+        .filter(|t| t.kind().is_string())
+        .and_then(|t| t.parent()?.ancestors().find(|n| n.kind() == SyntaxKind::CALL_STMT));
+    match stmt.and_then(import_binding).filter(|b| b.range == declaration) {
+        Some(binding) => binding.name,
+        None => &file.text[declaration],
+    }
+}
+
 /// `import("a.b.c")` binds `c`; `import("a.b.c", {alias = "x"})` binds `x`.
-fn import_binding(stmt: SyntaxNode<'_>) -> Option<Binding<'_>> {
+pub fn import_binding(stmt: SyntaxNode<'_>) -> Option<Binding<'_>> {
     let call = stmt.children().find_map(CallExpr::cast)?;
     if call.callee_name()? != "import" {
         return None;

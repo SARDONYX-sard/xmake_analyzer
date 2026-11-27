@@ -33,5 +33,5 @@ pub use crate::{
     },
     paths::{PathKind, check_path, normalize, resolve_include, resolve_module, resolve_paths},
     project::{Located, Project, ProjectScope},
-    resolve::{Binding, BindingKind, resolve, visible_bindings},
+    resolve::{Binding, BindingKind, declared_name, import_binding, resolve, visible_bindings},
 };

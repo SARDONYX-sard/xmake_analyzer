@@ -79,6 +79,7 @@ lints! {
     "unknown-value" => Warn, "A value an API does not accept, e.g. `set_kind(\"bin\")`.";
     "unmatched-path" => Warn, "A path matching nothing: `add_files` of a missing file, `add_includedirs` of a missing directory, a glob without match.";
     "unresolved-include" => Warn, "`includes` of a path loading nothing: no such file, nor a directory with an `xmake.lua`.";
+    "unused-import" => Warn, "An `import(...)` whose module is never used.";
     "unused-local" => Warn, "A local variable or function never used. Prefix it with `_` to keep it.";
     "unused-require" => Warn, "A package required with `add_requires` that no `add_packages` uses.";
     "wrong-scope" => Deny, "An API called in a scope it does not belong to, e.g. `set_kind` in an option: xmake fails with `cannot be called in`.";
