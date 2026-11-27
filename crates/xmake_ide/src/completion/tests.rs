@@ -393,3 +393,11 @@ fn keys_of_typed_options() {
     let labels = complete("task('hello')\n    set_menu {$}\n");
     assert!(has(&labels, "usage") && has(&labels, "options"), "{labels:?}");
 }
+
+#[test]
+fn options_of_tasks() {
+    let labels = complete(
+        "task('hello')\n    set_menu {options = {{'n', 'name', 'kv', nil, 'The name.'}}}\n    on_run(function ()\n        import('core.base.option')\n        option.get('$')\n    end)\n",
+    );
+    assert!(has(&labels, "name") && has(&labels, "verbose"), "{labels:?}");
+}

@@ -104,6 +104,7 @@ pub fn diagnostics<'a>(
         }
     }
     check_tools(file, &mut out);
+    check_task_options(file, &mut out);
     crate::globals::undefined_globals(project, file, &mut out);
     crate::globals::unused_locals(file, &mut out);
     crate::relations::check(project, file, &mut out);
@@ -324,6 +325,42 @@ fn check_module_function<'a>(
     });
 }
 
+/// `option.get("nmae")` in a task without such an option in its menu.
+fn check_task_options<'a>(file: &'a AnalyzedFile, out: &mut Vec<Diagnostic<'a>>) {
+    use xmake_project::task_options::{COMMON_OPTIONS, is_option_get, task_options};
+    let strings =
+        file.root().descendant_tokens().filter(|t| t.kind() == xmake_syntax::SyntaxKind::STRING);
+    for token in strings.filter(|t| is_option_get(file, *t)) {
+        let Some(options) = task_options(file, token.text_range().start()) else {
+            continue;
+        };
+        let range = xmake_project::outline::content_range(token);
+        let name = &file.text[range];
+        let names: Vec<&str> = options
+            .iter()
+            .map(|o| o.long.as_str())
+            .chain(COMMON_OPTIONS.iter().map(|(n, _)| *n))
+            .collect();
+        if names.contains(&name) {
+            continue;
+        }
+        let fix = crate::fuzzy::closest(name, names.iter().copied()).map(|c| Fix {
+            title: Cow::Owned(format!("Replace with `{c}`")),
+            range,
+            replacement: Cow::Owned(c.to_owned()),
+            safe: false,
+        });
+        out.push(Diagnostic {
+            range,
+            severity: Severity::Warning,
+            message: format!("unknown option `{name}`: the menu of the task does not have it")
+                .into(),
+            fixes: fix.into_iter().collect(),
+            code: "unknown-task-option",
+        });
+    }
+}
+
 /// `project.targetz()` with `project` a module of xmake (`import`ed, or
 /// typed `core.project.project`): a function it does not have.
 fn check_imported_function<'a>(
@@ -539,6 +576,28 @@ local a = {}
 local function _f(k) end
 ";
         assert!(check(text, LuaVersion::Lua54).is_empty(), "{:?}", check(text, LuaVersion::Lua54));
+    }
+
+    #[test]
+    fn task_options() {
+        let text = r#"task("hello")
+    set_menu {
+        usage = "xmake hello",
+        options = {
+            {"n", "name", "kv", nil, "The name."},
+            {},
+            {nil, "loud", "k", nil, "Shout."},
+        },
+    }
+    on_run(function ()
+        import("core.base.option")
+        print(option.get("name"), option.get("loud"), option.get("verbose"), option.get("nmae"))
+    end)
+"#;
+        assert_eq!(
+            check(text, LuaVersion::Lua54),
+            ["nmae unknown option `nmae`: the menu of the task does not have it"]
+        );
     }
 
     #[test]

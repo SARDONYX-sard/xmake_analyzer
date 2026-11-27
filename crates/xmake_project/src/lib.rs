@@ -17,6 +17,7 @@ pub mod paths;
 pub mod project;
 pub mod resolve;
 pub mod tables;
+pub mod task_options;
 
 pub use xmake_api;
 pub use xmake_syntax::{self, TextRange, TextSize};

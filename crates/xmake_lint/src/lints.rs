@@ -74,6 +74,7 @@ lints! {
     "unknown-param" => Warn, "`---@param` of a name the function below does not have.";
     "unknown-rule" => Deny, "`add_rules` of a rule neither builtin nor defined by the project: xmake fails with `unknown rule`.";
     "unknown-target" => Warn, "`add_deps` of a target the project does not define.";
+    "unknown-task-option" => Warn, "`option.get(name)` in a task whose menu (`set_menu`) has no such option: it gives `nil`.";
     "unknown-toolchain" => Deny, "`set_toolchains` of a toolchain neither builtin nor defined by the project: xmake fails with `toolchain not found`.";
     "unknown-type" => Warn, "A type in an annotation neither builtin, a class of the stubs, nor declared with `---@class`, `---@alias`, `---@enum` or `---@generic`.";
     "unknown-value" => Warn, "A value an API does not accept, e.g. `set_kind(\"bin\")`.";

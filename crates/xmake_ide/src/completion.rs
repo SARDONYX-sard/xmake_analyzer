@@ -842,6 +842,35 @@ fn string_completions<'a>(
     let Some((call, index)) = enclosing_call(token) else {
         return Vec::new();
     };
+    // `option.get("|")` in a task: the options of its menu.
+    if xmake_project::task_options::is_option_get(file, token)
+        && let Some(options) = xmake_project::task_options::task_options(file, offset)
+    {
+        let content = content_range(token);
+        let typed = &file.text[TextRange::new(content.start(), offset.max(content.start()))];
+        let replace = TextRange::new(content.start(), content.end().max(offset));
+        let mut items = Items::new(typed, replace);
+        for option in options {
+            if fuzzy_match(&option.long, items.prefix) {
+                items.items.push(CompletionItem {
+                    label: Cow::Owned(option.long),
+                    kind: CompletionKind::Value,
+                    detail: Some(Cow::Borrowed("task option")),
+                    documentation: Some(Cow::Owned(option.description)),
+                    snippet: None,
+                    replace,
+                    group: group::LOCAL,
+                });
+            }
+        }
+        for &(name, doc) in xmake_project::task_options::COMMON_OPTIONS {
+            if let Some(item) = items.add(name, CompletionKind::Value, group::VALUE) {
+                item.detail = Some(Cow::Borrowed("xmake option"));
+                item.documentation = Some(Cow::Borrowed(doc));
+            }
+        }
+        return items.items;
+    }
     let Some(name) = call.callee_name() else {
         return Vec::new();
     };
