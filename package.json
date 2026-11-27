@@ -208,7 +208,12 @@
         "xmake-analyzer.claimIncludedFiles": {
           "type": "boolean",
           "default": true,
-          "markdownDescription": "Keep Lua language servers away from the `.lua` files loaded by `includes()`: they are added to `files.associations` (as `xmake`) and, with the Lua extension (sumneko), to `Lua.workspace.ignoreDir`, in the settings of the workspace folder. Only the entries added by this extension are updated."
+          "markdownDescription": "Open the `.lua` files loaded by `includes()` (and the modules they `import()`) as `xmake`: they are added to `files.associations` in the settings of the workspace (`.vscode/settings.json`). Only the entries added by this extension are updated; turned off, they are removed."
+        },
+        "xmake-analyzer.luaIgnoreDir": {
+          "type": "boolean",
+          "default": true,
+          "markdownDescription": "With the Lua extension (sumneko), add every `xmake.lua` and the files they include or import to `Lua.workspace.ignoreDir`, in the settings of the workspace folder (`.vscode/settings.json`): it diagnoses them as plain Lua otherwise. Only the entries added by this extension are updated; turned off, they are removed."
         },
         "xmake-analyzer.codeLens.runTask": {
           "type": "boolean",

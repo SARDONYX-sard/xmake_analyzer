@@ -67,7 +67,9 @@ export async function activate(
     vscode.workspace.onDidChangeConfiguration((e) => {
       if (
         e.affectsConfiguration("files.associations") ||
-        e.affectsConfiguration("Lua.workspace.ignoreDir")
+        e.affectsConfiguration("Lua.workspace.ignoreDir") ||
+        e.affectsConfiguration(`${SECTION}.claimIncludedFiles`) ||
+        e.affectsConfiguration(`${SECTION}.luaIgnoreDir`)
       ) {
         // Our own writes come here too: the files of the server, not the
         // stored claims (stale while a write is in flight), else two
@@ -340,13 +342,12 @@ interface Claims {
  */
 async function writeClaims(files: vscode.Uri[]): Promise<void> {
   const state = extensionContext?.workspaceState;
-  if (
-    !state ||
-    !vscode.workspace
-      .getConfiguration(SECTION)
-      .get<boolean>("claimIncludedFiles")
-  )
-    return;
+  if (!state) return;
+  // Each write can be turned off; the entries written before are then
+  // removed, as the wanted ones are none.
+  const config = vscode.workspace.getConfiguration(SECTION);
+  const associate = config.get<boolean>("claimIncludedFiles", true);
+  const ignoreLua = config.get<boolean>("luaIgnoreDir", true);
   const sumneko = vscode.extensions.getExtension("sumneko.lua") !== undefined;
   for (const folder of vscode.workspace.workspaceFolders ?? []) {
     const hasProject =
@@ -363,10 +364,10 @@ async function writeClaims(files: vscode.Uri[]): Promise<void> {
       .map((rel) => rel.split(path.sep).join("/"))
       .sort();
     const wanted: Claims = {
-      associations: relative.map((rel) => `**/${rel}`),
+      associations: associate ? relative.map((rel) => `**/${rel}`) : [],
       // gitignore syntax: `xmake.lua` matches in every directory.
       ignored:
-        sumneko && hasProject
+        ignoreLua && sumneko && hasProject
           ? ["xmake.lua", ...relative.map((rel) => `/${rel}`)]
           : [],
     };
