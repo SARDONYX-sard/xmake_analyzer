@@ -202,9 +202,19 @@ fn push_params(out: &mut String, params: &[Param]) {
 }
 
 fn push_returns(out: &mut String, returns: &[Return]) {
+    // `-> (fun(): K, V), T, nil`: the values of a function in parentheses,
+    // apart from the other returned values.
+    let several = returns.len() > 1;
     for (i, r) in returns.iter().enumerate() {
         out.push_str(if i == 0 { " -> " } else { ", " });
-        out.push_str(r.ty);
+        let returns_values = r.ty.starts_with("fun(") && r.ty.contains("):");
+        if several && returns_values {
+            out.push('(');
+            out.push_str(r.ty);
+            out.push(')');
+        } else {
+            out.push_str(r.ty);
+        }
     }
 }
 

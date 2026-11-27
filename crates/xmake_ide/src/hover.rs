@@ -1259,7 +1259,7 @@ end)",
         let ipairs = hover_at("for i, v in ipa$irs({}) do end").expect("ipairs");
         assert!(
             ipairs.contains(
-                "ipairs(t: T|V[]) -> fun(table: V[], i?: integer): integer, V, T, integer"
+                "ipairs(t: T|V[]) -> (fun(table: V[], i?: integer): integer, V), T, integer"
             ) && ipairs.contains("# Examples"),
             "{ipairs}"
         );

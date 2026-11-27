@@ -253,7 +253,9 @@ impl<'a> Type<'a> {
                 T::Table | T::Shape(_) | T::Array(_) | T::Map(..) | T::Class(_) | T::Module(_),
                 T::Table | T::Shape(_),
             ) => true,
-            (T::Class(a), T::Class(b)) | (T::Module(a), T::Module(b)) => a == b,
+            // `---@param os os` given the module `os`: the class of the stubs
+            // describing it.
+            (T::Class(a) | T::Module(a), T::Class(b) | T::Module(b)) => a == b,
             (from, to) => from.same_kind(to),
         }
     }

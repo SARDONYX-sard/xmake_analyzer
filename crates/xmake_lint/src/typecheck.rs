@@ -200,6 +200,9 @@ mod tests {
         use('c++23')
         use('c++17')
         if t:kind() == 'shard' or os.host() ~= 'windows' then end
+        ---@param o os
+        local function uses(o) end
+        uses(os)
         local p = os.getenv('PATH')
         p = {}
         table.join2(p, 'x')
