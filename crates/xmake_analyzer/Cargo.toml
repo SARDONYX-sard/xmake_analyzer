@@ -1,6 +1,6 @@
 [package]
 name                   = "xmake_analyzer"
-version                = "0.3.1"
+version                = "0.3.2"
 description            = "Language server for xmake build scripts."
 authors.workspace      = true
 edition.workspace      = true

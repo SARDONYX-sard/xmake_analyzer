@@ -11,8 +11,8 @@ branding:
 inputs:
   version:
     description: >-
-      The release to install: a tag such as `0.3.1`, or `latest`. Empty (the
-      default) means the tag the action is used at (`@0.3.1`), or `latest`
+      The release to install: a tag such as `0.3.2`, or `latest`. Empty (the
+      default) means the tag the action is used at (`@0.3.2`), or `latest`
       when it is used at a branch or a commit.
     required: false
     default: ""
