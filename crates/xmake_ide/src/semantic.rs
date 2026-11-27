@@ -236,4 +236,32 @@ end
             file.root().descendants().find(|n| n.text() == "config.filepath()").expect("call");
         assert_eq!(crate::type_of(&project, &file, call).to_string(), "string");
     }
+
+    /// The loop variables of `pairs` over a typed table, the values of `type`.
+    #[test]
+    fn types_of_builtins() {
+        let text = "---@param project core.project.project
+local function f(project, x)
+    for name, target in pairs(project.targets()) do print(name, target) end
+    return type(x)
+end
+";
+        let mut project = Project::new(ApiDb::builtin(), Dialect::XMAKE_DEFAULT);
+        let file = project.set_file(PathBuf::from("xmake.lua"), Arc::from(text));
+        // The expression `text` starting at `at`.
+        let type_at = |at: usize, text_of: &str| {
+            let node = file
+                .root()
+                .descendants()
+                .filter(|n| usize::from(n.text_range().start()) == at && n.text() == text_of)
+                .last()
+                .expect("node");
+            crate::type_of(&project, &file, node).to_string()
+        };
+        let print = text.find("print(name, target)").expect("print");
+        assert_eq!(type_at(print + 6, "name"), "string");
+        assert_eq!(type_at(print + 12, "target"), "target");
+        let ty = type_at(text.find("type(x)").expect("type"), "type(x)");
+        assert!(ty.contains("\"table\""), "{ty}");
+    }
 }

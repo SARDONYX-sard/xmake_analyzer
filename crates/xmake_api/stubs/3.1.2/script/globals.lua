@@ -143,8 +143,9 @@ function ipairs(t) end
 --- # Notes
 ---
 --- Sort the keys first when the order matters: `table.keys` then `table.sort`.
----@param t table
----@return fun(): any, any
+---@generic K, V
+---@param t table<K, V>
+---@return fun(): K, V
 ---@see https://xmake.io/api/scripts/builtin-modules/pairs.html
 function pairs(t) end
 
@@ -172,7 +173,7 @@ function next(t, key) end
 --- end
 --- ```
 ---@param value any
----@return string
+---@return "nil"|"number"|"string"|"boolean"|"table"|"function"|"thread"|"userdata"
 function type(value) end
 
 --- Converts a value to a string.
