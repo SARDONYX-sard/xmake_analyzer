@@ -208,7 +208,9 @@ fn called_stub_at<'a>(
     let callee = CallExpr::cast(call)?.callee()?;
     if let Some(field) = FieldExpr::cast(callee) {
         let base = infer(project, file, field.base()?, depth + 1);
-        return stubs.member(base.module()?, field.field()?.text());
+        // `---@param config core.project.config`: a class, a module of xmake.
+        let module = base.module().or_else(|| base.owner().filter(|o| stubs.is_module(o)))?;
+        return stubs.member(module, field.field()?.text());
     }
     let name = NameRef::cast(callee)?.ident()?;
     if resolve(file, name).is_some() {

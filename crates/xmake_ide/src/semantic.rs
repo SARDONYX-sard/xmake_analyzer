@@ -151,6 +151,13 @@ fn classify_ident(
         }
         SyntaxKind::FIELD_EXPR => {
             let field = FieldExpr::cast(parent)?;
+            // `config.filepath()`: called, a function whatever `config` is.
+            let called = parent.parent().is_some_and(|p| {
+                p.kind() == SyntaxKind::CALL_EXPR && p.children().next() == Some(parent)
+            });
+            if called && field.field().is_some_and(|f| f == token) {
+                return Some((TokenType::Function, 0));
+            }
             let base = NameRef::cast(field.base()?)?;
             let base_ident = base.ident()?;
             match resolve(file, base_ident).map(|b| b.kind) {
@@ -207,5 +214,26 @@ mod tests {
                 "name:Method:0",
             ]
         );
+    }
+
+    /// A function called through a field: its color, whatever the table is.
+    #[test]
+    fn called_fields_are_functions() {
+        let text = "---@param config core.project.config
+local function f(config)
+    return os.isfile(config.filepath()), config.dir
+end
+";
+        let mut project = Project::new(ApiDb::builtin(), Dialect::XMAKE_DEFAULT);
+        let file = project.set_file(PathBuf::from("xmake.lua"), Arc::from(text));
+        let tokens: Vec<_> = semantic_tokens(&project, &file, None)
+            .into_iter()
+            .map(|t| format!("{}:{:?}", &text[t.range], t.ty))
+            .collect();
+        assert!(tokens.contains(&"filepath:Function".to_owned()), "{tokens:?}");
+        assert!(tokens.contains(&"dir:Property".to_owned()), "{tokens:?}");
+        let call =
+            file.root().descendants().find(|n| n.text() == "config.filepath()").expect("call");
+        assert_eq!(crate::type_of(&project, &file, call).to_string(), "string");
     }
 }

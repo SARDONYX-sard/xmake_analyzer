@@ -50,22 +50,33 @@ function config.arch() end
 ---@see https://xmake.io/api/scripts/extension-modules/core/project/config.html#config-mode
 function config.mode() end
 
+--- Returns the build directory (deprecated: `config.builddir`).
+---@return string
 function config.buildir() end
 
 function config.clear() end
 
+--- Returns the directory of the configuration (`.xmake/<host>/<arch>`).
+---@return string
 ---@see https://xmake.io/api/scripts/extension-modules/core/project/config.html#config-directory
 function config.directory() end
 
 ---@see https://xmake.io/api/scripts/extension-modules/core/project/config.html#config-dump
 function config.dump() end
 
+--- Returns the path of the configuration file (`xmake.conf`).
+---@return string
 function config.filepath() end
 
+--- Returns the host platform.
+---@return string
 function config.host() end
 
 function config.read() end
 
-function config.readonly() end
+--- Whether a configuration value is read-only.
+---@param name string
+---@return boolean
+function config.readonly(name) end
 
 function config.save() end
