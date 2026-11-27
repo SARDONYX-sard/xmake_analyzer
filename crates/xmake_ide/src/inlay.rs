@@ -39,6 +39,42 @@ pub struct InlayHint<'a> {
     pub kind: InlayKind,
 }
 
+/// The positions of an option of a task: `{"n", "name", "kv", "xmake", "The name."}`.
+const MENU_OPTION_FIELDS: [&str; 5] = ["short", "long", "kind", "default", "description"];
+
+/// `short:`, `long:`, ... before the values of an option of
+/// `set_menu {options = {{"n", "name", "kv", nil, "..."}}}`.
+fn menu_option_hints(table: SyntaxNode<'_>, out: &mut Vec<InlayHint<'_>>) {
+    use xmake_syntax::ast::{AstNode, TableExpr, TableField};
+    // option -> its field -> the list -> `options = ...` -> the menu -> the
+    // arguments of `set_menu`.
+    let in_options = table
+        .parent()
+        .and_then(|element| element.parent())
+        .and_then(|list| list.parent())
+        .and_then(TableField::cast)
+        .filter(|f| f.key_name().is_some_and(|k| k.text() == "options"))
+        .and_then(|f| f.syntax().parent())
+        .and_then(|menu| menu.parent())
+        .filter(|args| args.kind() == SyntaxKind::ARG_LIST)
+        .and_then(|args| args.parent())
+        .and_then(CallExpr::cast)
+        .is_some_and(|call| call.callee_name() == Some("set_menu"));
+    let Some(option) = TableExpr::cast(table).filter(|_| in_options) else {
+        return;
+    };
+    let positional = option.fields().filter(|f| f.key_name().is_none());
+    for (field, label) in positional.zip(MENU_OPTION_FIELDS) {
+        if let Some(value) = field.value() {
+            out.push(InlayHint {
+                offset: value.trimmed_range().start(),
+                label: Cow::Borrowed(label),
+                kind: InlayKind::Parameter,
+            });
+        }
+    }
+}
+
 /// The hints of `file` in `range` (the whole file for `None`).
 pub fn inlay_hints<'a>(
     project: &'a crate::Project,
@@ -67,6 +103,7 @@ pub fn inlay_hints<'a>(
                 let args = xmake_syntax::ast::MethodCallExpr::cast(node).and_then(|c| c.arg_list());
                 stub_parameter_hints(project, file, node, args, &mut out);
             }
+            SyntaxKind::TABLE_EXPR => menu_option_hints(node, &mut out),
             SyntaxKind::LOCAL_STMT => local_type_hints(project, file, node, &mut out),
             SyntaxKind::FUNCTION_STMT
             | SyntaxKind::LOCAL_FUNCTION_STMT
@@ -482,5 +519,27 @@ end)
             })
             .collect();
         assert_eq!(hints, ["default@fal", "files@'a.", "kind@'bi"]);
+    }
+
+    #[test]
+    fn menu_options() {
+        let text = "task('hello')
+    set_menu {
+        usage = 'xmake hello',
+        options = {
+            {'n', 'name', 'kv', nil, 'The name.'},
+        },
+    }
+";
+        let mut project =
+            crate::Project::new(xmake_api::ApiDb::builtin(), xmake_syntax::Dialect::XMAKE_DEFAULT);
+        let file =
+            project.set_file(std::path::PathBuf::from("xmake.lua"), std::sync::Arc::from(text));
+        let labels: Vec<String> = inlay_hints(&project, &file, None)
+            .into_iter()
+            .filter(|h| h.kind == InlayKind::Parameter)
+            .map(|h| h.label.into_owned())
+            .collect();
+        assert_eq!(labels, ["short", "long", "kind", "default", "description"]);
     }
 }

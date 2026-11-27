@@ -18,6 +18,6 @@ function task_values.set_category(category) end
 ---@class xmake.task.dictionary
 local task_dictionary = {}
 
----@param options table Menu options table
+---@param options xmake.options.menu Menu options table
 ---@see https://xmake.io/api/description/plugin-and-task.html#set-menu
 function task_dictionary.set_menu(options) end

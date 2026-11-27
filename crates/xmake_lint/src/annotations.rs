@@ -302,6 +302,8 @@ fn type_names(ty: &str) -> Vec<&str> {
 fn known_types<'a>(project: &'a Project, file: &'a AnalyzedFile) -> FxHashSet<&'a str> {
     let mut known: FxHashSet<&'a str> = BUILTIN_TYPES.iter().copied().collect();
     known.extend(xmake_api::Stubs::get().classes().map(|c| c.name));
+    // `xmake.value.kind`: the aliases of the stubs.
+    known.extend(xmake_api::Stubs::get().aliases().iter().map(|a| a.name));
     let files = project.files().map(|(_, f)| &**f).chain(std::iter::once(file));
     for annotation in files.flat_map(|f| annotations::all(f.root())) {
         match annotation.tag {

@@ -170,11 +170,39 @@ fn ident_hover(project: &Project, file: &AnalyzedFile, token: SyntaxToken<'_>) -
         // `t` in `function t() end`.
         SyntaxKind::FUNC_NAME => {
             let statement = parent.parent()?;
-            let name = xmake_types::global_function_name(statement)?;
-            Some(function_page(project, file, statement, name))
+            match xmake_types::global_function_name(statement) {
+                Some(name) => Some(function_page(project, file, statement, name)),
+                // `set_menu` of `function task_dictionary.set_menu()` in a stub.
+                None => stub_definition_hover(project, file, token),
+            }
         }
         _ => None,
     }
+}
+
+/// The stub declared at `token` in a file of the stubs: its page, with the
+/// documentation of the API shared by the scopes (`xmake.api`).
+fn stub_definition_hover(
+    project: &Project,
+    file: &AnalyzedFile,
+    token: SyntaxToken<'_>,
+) -> Option<String> {
+    let path = crate::modules::path_of(project, file)?;
+    let stubs = Stubs::get();
+    let dir = stubs.dir()?;
+    let function = stubs.functions().iter().find(|f| {
+        f.location.range == token.text_range()
+            && crate::paths::normalize(&dir.join(f.location.file)) == crate::paths::normalize(path)
+    })?;
+    let mut page = stub_page(function.owner, function);
+    if function.doc.is_empty()
+        && let Some((scope, _)) = function.scope
+        && let Some(doc) = xmake_api::api_doc(Some(scope), function.name)
+    {
+        page.push_str("\n\n---\n\n");
+        page.push_str(doc);
+    }
+    Some(page)
 }
 
 /// At most this many members are listed by [`with_members`].
@@ -979,6 +1007,20 @@ mod tests {
         let mut project = Project::new(ApiDb::builtin(), Dialect::XMAKE_DEFAULT);
         let file = project.set_file(PathBuf::from("xmake.lua"), Arc::from(text.as_str()));
         hover(&project, &file, TextSize::new(offset as u32)).map(|h| h.markdown)
+    }
+
+    #[test]
+    fn stubs_opened() {
+        // `set_menu` in `description/scopes/task.lua`: its stub, and the shared
+        // documentation of the API.
+        let dir = xmake_api::Stubs::get().dir().expect("stubs").to_owned();
+        let path = dir.join("description/scopes/task.lua");
+        let text = std::fs::read_to_string(&path).expect("task.lua");
+        let offset = text.find("set_menu(options)").expect("set_menu");
+        let mut project = Project::new(ApiDb::builtin(), Dialect::XMAKE_DEFAULT);
+        let file = project.set_file(crate::normalize(&path), Arc::from(text.as_str()));
+        let page = hover(&project, &file, TextSize::new(offset as u32)).expect("hover").markdown;
+        assert!(page.contains("xmake.options.menu") && page.contains("# Examples"), "{page}");
     }
 
     #[test]

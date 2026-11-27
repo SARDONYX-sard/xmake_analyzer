@@ -178,7 +178,13 @@ async function start(context: vscode.ExtensionContext): Promise<void> {
   };
   const clientOptions: LanguageClientOptions = {
     // `xmake.lua` and the files it includes, once given the `xmake` language.
-    documentSelector: [{ scheme: "file", language: LANGUAGE }],
+    documentSelector: [
+      { scheme: "file", language: LANGUAGE },
+      // The stubs, opened by go to definition: hover and navigation in them.
+      { scheme: "file", language: "lua", pattern: "**/xmake_analyzer/cache/**/*.lua" },
+      { scheme: "file", language: "lua", pattern: "**/build/stubs/**/*.lua" },
+      { scheme: "file", language: "lua", pattern: "**/crates/xmake_api/stubs/**/*.lua" },
+    ],
     initializationOptions: settings(),
     outputChannel: output,
   };

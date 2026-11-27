@@ -66,6 +66,11 @@ pub fn diagnostics<'a>(
     levels: &crate::LintLevels,
 ) -> Vec<Diagnostic<'a>> {
     let mut out = Vec::new();
+    // `---@meta`: declarations only (the stubs), as the Lua language server
+    // treats them: locals holding stubs, functions without bodies.
+    if file.text.trim_start().starts_with("---@meta") {
+        return out;
+    }
     for error in file.parse.errors() {
         let severity = Severity::Error;
         let message = Cow::Borrowed(error.message());
@@ -514,6 +519,26 @@ target("app")
                 "cpp unknown function `os.cpp`",
             ]
         );
+    }
+
+    #[test]
+    fn meta_files_and_alias_types() {
+        // The stubs: declarations only.
+        assert!(
+            check(
+                "---@meta
+---@class a
+local a = {}
+",
+                LuaVersion::Lua54
+            )
+            .is_empty()
+        );
+        // The aliases of the stubs are types.
+        let text = "---@param k xmake.value.kind
+local function _f(k) end
+";
+        assert!(check(text, LuaVersion::Lua54).is_empty(), "{:?}", check(text, LuaVersion::Lua54));
     }
 
     #[test]

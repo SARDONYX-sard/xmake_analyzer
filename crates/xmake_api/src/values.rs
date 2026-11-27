@@ -130,6 +130,18 @@ pub fn option_keys(
     name: &str,
     kind: Option<crate::ApiKind>,
 ) -> &'static [(&'static str, &'static str)] {
+    // `---@param options xmake.options.menu`: the fields of the class.
+    let stubs = crate::Stubs::get();
+    let typed =
+        stubs.functions().iter().filter(|f| f.name == name && f.scope.is_some()).find_map(|f| {
+            f.params.iter().flat_map(|p| p.type_names()).find_map(|ty| {
+                let class = stubs.class(ty).filter(|_| ty.starts_with("xmake.options."))?;
+                Some(class.field_docs.as_slice())
+            })
+        });
+    if let Some(keys) = typed {
+        return keys;
+    }
     match name {
         "add_files" | "add_extrafiles" => options("files"),
         "add_tests" => options("test"),

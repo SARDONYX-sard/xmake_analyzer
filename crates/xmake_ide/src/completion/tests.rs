@@ -386,3 +386,10 @@ fn members_of_typed_modules() {
     );
     assert!(has(&labels, "load") && has(&labels, "filepath"), "{labels:?}");
 }
+
+#[test]
+fn keys_of_typed_options() {
+    // `---@param options xmake.options.menu`: the fields of the class.
+    let labels = complete("task('hello')\n    set_menu {$}\n");
+    assert!(has(&labels, "usage") && has(&labels, "options"), "{labels:?}");
+}

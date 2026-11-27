@@ -84,3 +84,12 @@ local options_dep = {}
 ---@field build? any The format of the build version (`os.date`): `"%Y%m%d%H%M"`.
 ---@field soname? any Version the shared library file names (`true`, or a version).
 local options_version = {}
+
+--- The command line of a task: `set_menu {usage = ..., description = ..., options = {...}}`.
+---@class xmake.options.menu
+---@field usage? string The usage line: `xmake hello [options]`.
+---@field description? string What the task does, in `xmake --help`.
+---@field options? xmake.menu.option[] The options, `option.get(long)` in the task: `{short, long, kind, default, description, values...}`.
+local options_menu = {}
+
+---@alias xmake.menu.option table
