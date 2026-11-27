@@ -376,3 +376,13 @@ fn annotation_types_with_dots() {
     let labels = complete("---@param config $\nlocal function f(config) end\n");
     assert!(has(&labels, "core.project.project"), "{labels:?}");
 }
+
+#[test]
+fn members_of_typed_modules() {
+    // `---@param p core.project.config`: a class of the stubs, a module of
+    // xmake: every function, typed or only listed.
+    let labels = complete(
+        "---@param config core.project.config\nlocal function f(config)\n    config.$\nend\n",
+    );
+    assert!(has(&labels, "load") && has(&labels, "filepath"), "{labels:?}");
+}

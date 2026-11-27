@@ -353,6 +353,15 @@ impl Stubs {
         self.functions.iter().filter(move |f| f.owner == owner && seen.insert(f.name))
     }
 
+    /// Whether `name` is a module of xmake: importable (`core.project.config`)
+    /// or builtin (`os`), whose functions are all known, not only the typed
+    /// ones. Not an instance (`target`) nor a type.
+    pub fn is_module(&self, name: &str) -> bool {
+        self.functions.iter().any(|f| {
+            f.owner == name && (f.contexts.import || f.contexts.script || f.contexts.description)
+        })
+    }
+
     /// The typed function or method `name` of `owner`.
     pub fn member(&self, owner: &str, name: &str) -> Option<&Function> {
         let mut found = self.functions.iter().filter(|f| f.owner == owner && f.name == name);

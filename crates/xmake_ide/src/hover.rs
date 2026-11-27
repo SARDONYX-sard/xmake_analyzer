@@ -681,7 +681,9 @@ fn global_variable_hover(project: &Project, file: &AnalyzedFile, name: &str) -> 
 fn field_hover(project: &Project, file: &AnalyzedFile, field: FieldExpr<'_>) -> Option<String> {
     let base = field.base()?;
     let func = field.field()?.text();
-    let module = type_of(project, file, base).module()?;
+    let ty = type_of(project, file, base);
+    // `import("core.project.project")`, or `---@param p core.project.project`.
+    let module = ty.module().or_else(|| ty.owner().filter(|o| Stubs::get().is_module(o)))?;
     if let Some(function) = Stubs::get().member(module, func) {
         return Some(stub_page(module, function));
     }

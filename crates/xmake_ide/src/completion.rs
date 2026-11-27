@@ -551,7 +551,9 @@ fn member_completions<'a>(
         let available = |name: &str| module.is_none_or(|m| m.functions.iter().any(|f| f == name));
         // A module: every function, typed or only listed.
         let stubs = xmake_api::Stubs::get();
-        let members: Box<dyn Iterator<Item = &xmake_api::Function>> = if ty.module().is_some() {
+        // `---@param p core.project.project`: a class, but a module of xmake.
+        let module_table = ty.module().is_some() || (!method && stubs.is_module(owner));
+        let members: Box<dyn Iterator<Item = &xmake_api::Function>> = if module_table {
             Box::new(stubs.all_members(owner))
         } else {
             Box::new(stubs.members(owner))

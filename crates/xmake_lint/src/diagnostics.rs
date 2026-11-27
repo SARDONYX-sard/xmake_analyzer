@@ -158,6 +158,7 @@ fn check_call<'a>(
         }
     } else if let Some(field) = FieldExpr::cast(callee) {
         check_module_function(project, file, field, out);
+        check_imported_function(project, file, field, out);
     }
 }
 
@@ -318,6 +319,51 @@ fn check_module_function<'a>(
     });
 }
 
+/// `project.targetz()` with `project` a module of xmake (`import`ed, or
+/// typed `core.project.project`): a function it does not have.
+fn check_imported_function<'a>(
+    project: &'a Project,
+    file: &'a AnalyzedFile,
+    field: FieldExpr<'a>,
+    out: &mut Vec<Diagnostic<'a>>,
+) {
+    let (Some(base), Some(func)) = (field.base(), field.field()) else {
+        return;
+    };
+    // The builtin modules by name: [`check_module_function`].
+    if let Some(name) = NameRef::cast(base).and_then(|n| n.ident())
+        && resolve(file, name).is_none()
+    {
+        return;
+    }
+    let ty = xmake_types::type_of(project, file, base);
+    let stubs = xmake_api::Stubs::get();
+    let Some(module) = ty.module().or_else(|| ty.owner()).filter(|o| stubs.is_module(o)) else {
+        return;
+    };
+    let known: Vec<&str> = stubs.all_members(module).map(|f| f.name).collect();
+    let prefix = format!("{module}.");
+    // `core.base` of `core.base.json`: a module holding modules.
+    let submodule =
+        project.db.extension_apis().iter().any(|a| {
+            a.strip_prefix(&prefix).is_some_and(|r| r.split('.').next() == Some(func.text()))
+        });
+    if known.contains(&func.text()) || submodule {
+        return;
+    }
+    let message = format!("unknown function `{module}.{}`", func.text());
+    let range = func.text_range();
+    let fix =
+        crate::fuzzy::closest(func.text(), known.iter().copied()).map(|c| Fix::replace(range, c));
+    out.push(Diagnostic {
+        range,
+        severity: Severity::Warning,
+        message: message.into(),
+        fixes: fix.into_iter().collect(),
+        code: "unknown-function",
+    });
+}
+
 /// The tools of the flags: `"cl::/W4"` and `{tools = {"cl", "gcc"}}` name
 /// tools of xmake; a flag for another one is never given.
 fn check_tools<'a>(file: &'a AnalyzedFile, out: &mut Vec<Diagnostic<'a>>) {
@@ -466,6 +512,32 @@ target("app")
                 "frobnicate unknown method `frobnicate` of target",
                 "targetfil unknown method `targetfil` of target",
                 "cpp unknown function `os.cpp`",
+            ]
+        );
+    }
+
+    #[test]
+    fn functions_of_imported_modules() {
+        let text = r#"---@param project core.project.project
+local function _f(project)
+    project.targets()
+    project.targetz()
+end
+target("a")
+    on_load(function (t)
+        import("core.base.json")
+        json.decode("{}")
+        json.decod("{}")
+        import("core.project.project").target("a")
+        import("core") -- a module of modules: `core.base`
+        core.base.json.decode("{}")
+    end)
+"#;
+        assert_eq!(
+            check(text, LuaVersion::Lua54),
+            [
+                "targetz unknown function `core.project.project.targetz`",
+                "decod unknown function `core.base.json.decod`",
             ]
         );
     }
