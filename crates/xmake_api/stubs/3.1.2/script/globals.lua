@@ -124,9 +124,11 @@ function vprint(...) end
 --- # Notes
 ---
 --- The order is the index order; use `pairs` for the other keys.
----@generic V
----@param t V[]
----@return fun(): integer, V
+---@generic T: table, V
+---@param t T|V[]
+---@return fun(table: V[], i?: integer): integer, V iterator
+---@return T t
+---@return integer i
 ---@see https://xmake.io/api/scripts/builtin-modules/ipairs.html
 function ipairs(t) end
 
@@ -143,9 +145,11 @@ function ipairs(t) end
 --- # Notes
 ---
 --- Sort the keys first when the order matters: `table.keys` then `table.sort`.
----@generic K, V
----@param t table<K, V>
----@return fun(): K, V
+---@generic T: table, K, V
+---@param t T|table<K, V>
+---@return fun(table: table<K, V>, index?: K): K, V next
+---@return T t
+---@return nil
 ---@see https://xmake.io/api/scripts/builtin-modules/pairs.html
 function pairs(t) end
 

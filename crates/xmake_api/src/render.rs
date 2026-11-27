@@ -756,6 +756,6 @@ mod tests {
             );
         }
         let ipairs = stubs.member(crate::GLOBALS, "ipairs").expect("ipairs");
-        assert!(ipairs.extra.contains(&"generic V"), "{:?}", ipairs.extra);
+        assert!(ipairs.extra.contains(&"generic T: table, V"), "{:?}", ipairs.extra);
     }
 }
